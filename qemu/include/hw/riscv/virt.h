@@ -46,6 +46,7 @@ struct RISCVVirtState {
     MachineState parent;
 
     /*< public >*/
+    Notifier power_down;
     Notifier machine_done;
     DeviceState *platform_bus_dev;
     RISCVHartArrayState soc[VIRT_SOCKETS_MAX];
@@ -55,6 +56,8 @@ struct RISCVVirtState {
 
     int fdt_size;
     bool have_aclint;
+    bool have_rpmi;
+    bool have_reri;
     RISCVVirtAIAType aia_type;
     int aia_guests;
     char *oem_id;
@@ -63,6 +66,7 @@ struct RISCVVirtState {
     const MemMapEntry *memmap;
     struct GPEXHost *gpex_host;
     OnOffAuto iommu_sys;
+    uint32_t sysmsi_gsi_base;
 };
 
 enum {
@@ -76,6 +80,11 @@ enum {
     VIRT_APLIC_M,
     VIRT_APLIC_S,
     VIRT_UART0,
+    VIRT_RPMI_SHMEM,
+    VIRT_RPMI_FCM,
+    VIRT_RPMI_DOORBELL,
+    VIRT_RPMI_SOC_SHMEM,
+    VIRT_RPMI_SOC_DOORBELL,
     VIRT_VIRTIO,
     VIRT_FW_CFG,
     VIRT_IMSIC_M,
@@ -87,6 +96,14 @@ enum {
     VIRT_PLATFORM_BUS,
     VIRT_PCIE_ECAM,
     VIRT_IOMMU_SYS,
+    VIRT_RERI_BANK_DRAM,
+    VIRT_RERI_BANK_HARTS,
+    VIRT_ACPI_GED,
+    VIRT_LAST_MEMMAP /* Keep this entry always last */
+};
+
+enum {
+    VIRT_HIGH_PCIE_MMIO = VIRT_LAST_MEMMAP,
 };
 
 enum {
@@ -115,7 +132,9 @@ enum {
 #define VIRT_PLIC_CONTEXT_STRIDE 0x1000
 #define VIRT_PLIC_SIZE(__num_context) \
     (VIRT_PLIC_CONTEXT_BASE + (__num_context) * VIRT_PLIC_CONTEXT_STRIDE)
-
+#define PER_HART_ERR_BANK_SIZE       0x1000
+#define HARTS_ERR_BANK_SIZE(__num_harts) \
+        (PER_HART_ERR_BANK_SIZE * __num_harts)
 #define FDT_PCI_ADDR_CELLS    3
 #define FDT_PCI_INT_CELLS     1
 #define FDT_PLIC_ADDR_CELLS   0
@@ -157,5 +176,7 @@ uint32_t imsic_num_bits(uint32_t count);
 #if 0x4000000 < VIRT_IMSIC_MAX_SIZE
 #error "Can't accommodate all IMSIC groups in address space"
 #endif
+
+extern uint16_t iommu_bdf;
 
 #endif
