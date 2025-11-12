@@ -7,6 +7,9 @@ config RISCV_NUMA
 config IBEX
     bool
 
+config RISCV_RERI
+    bool
+
 # RISC-V machines in alphabetical order
 
 config MICROCHIP_PFSOC
@@ -60,14 +63,17 @@ config RISCV_VIRT
     select RISCV_APLIC
     select RISCV_IOMMU
     select RISCV_IMSIC
+    select RISCV_RPMI
     select SIFIVE_PLIC
     select SIFIVE_TEST
     select SMBIOS
     select VIRTIO_MMIO
     select FW_CFG_DMA
+    select RISCV_RERI
     select PLATFORM_BUS
     select ACPI
     select ACPI_PCI
+    select ACPI_HW_REDUCED
 
 config SHAKTI_C
     bool

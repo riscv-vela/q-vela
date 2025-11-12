@@ -309,6 +309,7 @@ out:
  * The FDT is fdt_packed() during the calculation.
  */
 uint64_t riscv_compute_fdt_addr(hwaddr dram_base, hwaddr dram_size,
+		                hwaddr dram_resv_start,
                                 MachineState *ms, RISCVBootInfo *info)
 {
     int ret = fdt_pack(ms->fdt);
@@ -336,23 +337,31 @@ uint64_t riscv_compute_fdt_addr(hwaddr dram_base, hwaddr dram_size,
         dtb_start_limit = 0;
     }
 
-    /*
-     * A dram_size == 0, usually from a MemMapEntry[].size element,
-     * means that the DRAM block goes all the way to ms->ram_size.
-     */
-    dram_end = dram_base;
-    dram_end += dram_size ? MIN(ms->ram_size, dram_size) : ms->ram_size;
-
-    /*
-     * We should put fdt as far as possible to avoid kernel/initrd overwriting
-     * its content. But it should be addressable by 32 bit system as well in RV32.
-     * Thus, put it near to the end of dram in RV64, and put it near to the end
-     * of dram or 3GB whichever is lesser in RV32.
-     */
-    if (!info->is_32bit) {
-        temp = dram_end;
+    if (!dram_resv_start) {
+        /*
+         * A dram_size == 0, usually from a MemMapEntry[].size element,
+         * means that the DRAM block goes all the way to ms->ram_size.
+         */
+        dram_end = dram_base;
+        dram_end += dram_size ? MIN(ms->ram_size, dram_size) : ms->ram_size;
+	/*
+         * We should put fdt as far as possible to avoid kernel/initrd overwriting
+         * its content. But it should be addressable by 32 bit system as well in RV32.
+         * Thus, put it near to the end of dram in RV64, and put it near to the end
+         * of dram or 3GB whichever is lesser in RV32.
+         */
+        if (!info->is_32bit) {
+            temp = dram_end;
+        } else {
+            temp = (dram_base < 3072 * MiB) ? MIN(dram_end, 3072 * MiB) : dram_end;
+        }
     } else {
-        temp = (dram_base < 3072 * MiB) ? MIN(dram_end, 3072 * MiB) : dram_end;
+	dram_end = temp = dram_resv_start;
+
+        if ((dram_base < 3072 * MiB) && (temp >= 3072 * MiB)) {
+            temp = (dram_base < 3072 * MiB)
+                ? MIN(dram_end, 3072 * MiB) : dram_end;
+        }
     }
 
     dtb_start = QEMU_ALIGN_DOWN(temp - fdtsize, 2 * MiB);
@@ -363,6 +372,44 @@ uint64_t riscv_compute_fdt_addr(hwaddr dram_base, hwaddr dram_size,
     }
 
     return dtb_start;
+}
+
+uint64_t riscv_compute_apei_addr(hwaddr dram_base, hwaddr dram_size,
+                                  hwaddr dram_resv_start, uint64_t apei_size,
+                                  MachineState *ms)
+{
+    hwaddr dram_end, temp;
+
+    if (apei_size <= 0) {
+        error_report("invalid device-tree");
+        exit(1);
+    }
+
+    if (!dram_resv_start) {
+        /*
+         * A dram_size == 0, usually from a MemMapEntry[].size element,
+         * means that the DRAM block goes all the way to ms->ram_size.
+         */
+        dram_end = dram_base;
+        dram_end += dram_size ? MIN(ms->ram_size, dram_size) : ms->ram_size;
+
+        /*
+         * We should put fdt as far as possible to avoid kernel/initrd
+         * overwriting its content. But it should be addressable by 32 bit
+         * system as well. Thus, put it at an 2MB aligned address that less than
+         * fdt size from the end of dram or 3GB whichever is lesser.
+         */
+        temp = (dram_base < 3072 * MiB) ? MIN(dram_end, 3072 * MiB) : dram_end;
+    } else {
+        dram_end = temp = dram_resv_start;
+
+        if ((dram_base < 3072 * MiB) && (temp >= 3072 * MiB)) {
+            temp = (dram_base < 3072 * MiB)
+                ? MIN(dram_end, 3072 * MiB) : dram_end;
+        }
+    }
+
+    return QEMU_ALIGN_DOWN(temp - apei_size, 2 * MiB);
 }
 
 /*
