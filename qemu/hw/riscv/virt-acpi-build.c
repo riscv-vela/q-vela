@@ -27,6 +27,7 @@
 #include "hw/acpi/acpi-defs.h"
 #include "hw/acpi/acpi.h"
 #include "hw/acpi/aml-build.h"
+#include "hw/acpi/generic_event_device.h"
 #include "hw/acpi/pci.h"
 #include "hw/acpi/utils.h"
 #include "hw/intc/riscv_aclint.h"
@@ -39,6 +40,7 @@
 #include "qapi/error.h"
 #include "qemu/error-report.h"
 #include "system/reset.h"
+#include "hw/misc/riscv_rpmi.h"
 
 #define ACPI_BUILD_TABLE_SIZE             0x20000
 #define ACPI_BUILD_INTC_ID(socket, index) ((socket << 24) | (index))
@@ -51,6 +53,212 @@ typedef struct AcpiBuildState {
     /* Is table patched? */
     bool patched;
 } AcpiBuildState;
+
+static void acpi_dsdt_add_plat_osc(Aml *scope)
+{
+    Aml *method, *UUID, *if_uuid, *else_uuid;
+    Aml *if_arg1_not_1, *else_arg1_not_1;
+
+    method = aml_method("_OSC", 4, AML_NOTSERIALIZED);
+    /*
+     * CDW1 is used for the return value so is present
+     * whether or not a match occurs
+     */
+    aml_append(method,
+               aml_create_dword_field(aml_arg(3), aml_int(0), "CDW1"));
+    aml_append(method,
+               aml_create_dword_field(aml_arg(3), aml_int(4), "CDW2"));
+
+    UUID = aml_touuid("0811B06E-4A27-44F9-8D60-3CBBC22E7B48");
+    if_uuid = aml_if(aml_equal(aml_arg(0), UUID));
+
+    if_arg1_not_1 = aml_if(aml_lnot(aml_equal(aml_arg(1), aml_int(0x1))));
+    aml_append(if_arg1_not_1,
+               aml_or(aml_name("CDW1"), aml_int(0xA), aml_name("CDW1")));
+
+    aml_append(if_uuid, if_arg1_not_1);
+    else_arg1_not_1 = aml_else();
+    aml_append(else_arg1_not_1,
+               aml_and(aml_name("CDW2"), aml_int(0xC0), aml_name("CDW2")));
+    aml_append(if_uuid, else_arg1_not_1);
+    aml_append(if_uuid, aml_return(aml_arg(3)));
+    aml_append(method, if_uuid);
+
+    /*
+     * If no UUID matched, return Unrecognized UUID via Arg3 DWord 1
+     * ACPI 6.4 - 6.2.11
+     * _OSC failure - BIT(1)
+     * Unrecognised UUID - BIT(2)
+     */
+    else_uuid = aml_else();
+
+    aml_append(else_uuid,
+               aml_or(aml_name("CDW1"), aml_int(0x6), aml_name("CDW1")));
+    aml_append(else_uuid, aml_return(aml_arg(3)));
+    aml_append(method, else_uuid);
+
+    aml_append(scope, method);
+}
+
+static void riscv_acpi_cpus_add_psd(int cpu, Aml *dev)
+{
+    /*
+     * _PSD
+     */
+    Aml *psd = aml_package(1);
+    Aml *sub_psd = aml_package(5);
+    aml_append(sub_psd, aml_int(5));
+    aml_append(sub_psd, aml_int(0));
+    aml_append(sub_psd, aml_int(cpu));
+    aml_append(sub_psd, aml_int(0xFD));
+    aml_append(sub_psd, aml_int(1));
+    aml_append(psd, sub_psd);
+    aml_append(dev, aml_name_decl("_PSD", psd));
+}
+
+static void riscv_acpi_cpus_add_cpc(Aml *dev)
+{
+    /*
+     * Create _CPC object common across all cpus
+     */
+    Aml *cpc = aml_package(23);
+    aml_append(cpc, aml_int(23));     /* NumEntries */
+    aml_append(cpc, aml_int(3));      /* Revision */
+    aml_append(cpc, aml_int(5));      /* HighestPerformance */
+    aml_append(cpc, aml_int(4));      /* NominalPerformance */
+    aml_append(cpc, aml_int(2));      /* LowestNonlinearPerformance */
+    aml_append(cpc, aml_int(2));      /* LowestPerformance */
+
+    Aml *unimp = aml_resource_template();
+    build_append_int_noprefix(unimp->buf, 0x82, 1);  /* descriptor */
+    build_append_int_noprefix(unimp->buf, 0x12, 1);  /* length[7:0] */
+    build_append_int_noprefix(unimp->buf, 0x0, 1);   /* length[15:8] */
+    build_append_gas(unimp->buf, AML_AS_SYSTEM_MEMORY, 0, 0, 0, 0);
+    aml_append(cpc, unimp);           /* GuaranteedPerformanceRegister */
+
+    Aml *desired_perf = aml_resource_template();
+    build_append_int_noprefix(desired_perf->buf, 0x82, 1);  /* descriptor */
+    build_append_int_noprefix(desired_perf->buf, 0x12, 1);  /* length[7:0] */
+    build_append_int_noprefix(desired_perf->buf, 0x0, 1);   /* length[15:8] */
+    build_append_gas(desired_perf->buf, AML_AS_FFH, 0x40, 0, 4, 0x1000000000000005);
+    aml_append(cpc, desired_perf);    /* DesiredPerformanceRegister */
+
+    aml_append(cpc, unimp);    /* MinimumPerformanceRegister */
+    aml_append(cpc, unimp);    /* MaximumPerformanceRegister */
+    aml_append(cpc, unimp);    /* PerformanceReductionToleranceRegister, */
+
+    Aml *time_window = aml_resource_template();
+    build_append_int_noprefix(time_window->buf, 0x82, 1);  /* descriptor */
+    build_append_int_noprefix(time_window->buf, 0x12, 1);  /* length[7:0] */
+    build_append_int_noprefix(time_window->buf, 0x0, 1);   /* length[15:8] */
+    build_append_gas(time_window->buf, AML_AS_FFH, 0x40, 0, 4, 0x1000000000000009);
+    aml_append(cpc, time_window);     /* TimeWindowRegister */
+
+    aml_append(cpc, unimp);           /* CounterWraparoundTime */
+
+    Aml *ref_perf_counter = aml_resource_template();
+    build_append_int_noprefix(ref_perf_counter->buf, 0x82, 1);  /* descriptor */
+    build_append_int_noprefix(ref_perf_counter->buf, 0x12, 1); /* length[7:0] */
+    build_append_int_noprefix(ref_perf_counter->buf, 0x0, 1); /* length[15:8] */
+    build_append_gas(ref_perf_counter->buf, AML_AS_FFH, 0x40, 0, 4, 0x2000000000000C01);
+    aml_append(cpc, ref_perf_counter);/* ReferencePerformanceCounterRegister */
+
+    Aml *del_perf_counter = aml_resource_template();
+    build_append_int_noprefix(del_perf_counter->buf, 0x82, 1);  /* descriptor */
+    build_append_int_noprefix(del_perf_counter->buf, 0x12, 1); /* length[7:0] */
+    build_append_int_noprefix(del_perf_counter->buf, 0x0, 1); /* length[15:8] */
+    build_append_gas(del_perf_counter->buf, AML_AS_FFH, 0x40, 0, 4, 0x100000000000000C);
+    aml_append(cpc, del_perf_counter);/* DeliveredPerformanceCounterRegister */
+
+    aml_append(cpc, unimp);           /* PerformanceLimitedRegister */
+    aml_append(cpc, unimp);           /* CPPCEnableRegister */
+    aml_append(cpc, unimp);           /* AutonomousSelectionEnable */
+    aml_append(cpc, unimp);           /* AutonomousActivityWindowRegister */
+    aml_append(cpc, unimp);           /* EnergyPerformancePreferenceRegister */
+    aml_append(cpc, aml_int(1));      /* ReferencePerformance */
+    aml_append(cpc, aml_int(40));    /* LowestFrequency - 40MHz */
+    aml_append(cpc, aml_int(80));   /* NominalFrequency - 80MHz */
+    aml_append(dev, aml_name_decl("_CPC", cpc));
+}
+
+static void riscv_acpi_cpus_add_lpi(Aml *dev)
+{
+    /* LPI[0]  - Default WFI */
+    Aml *lpi0 = aml_package(10);
+    aml_append(lpi0, aml_int(1));    /* Min Residency */
+    aml_append(lpi0, aml_int(1));    /* Worst case wakeup latency */
+    aml_append(lpi0, aml_int(1));    /* Flags */
+    aml_append(lpi0, aml_int(0));    /* Arch Context loss flags */
+    aml_append(lpi0, aml_int(100));  /* Residency counter frequency */
+    aml_append(lpi0, aml_int(0));    /* Enabled parent state */
+
+    Aml *entry0 = aml_resource_template();
+    build_append_int_noprefix(entry0->buf, 0x82, 1);    /* descriptor */
+    build_append_int_noprefix(entry0->buf, 0x12, 1);    /* length[7:0] */
+    build_append_int_noprefix(entry0->buf, 0x0, 1);     /* length[15:8] */
+    build_append_gas(entry0->buf, AML_AS_FFH, 0x40, 0, 4, 0x0);
+    aml_append(lpi0, entry0);
+
+    Aml *use_res_count = aml_resource_template();
+    build_append_int_noprefix(use_res_count->buf, 0x82, 1);  /* descriptor */
+    build_append_int_noprefix(use_res_count->buf, 0x12, 1);  /* length[7:0] */
+    build_append_int_noprefix(use_res_count->buf, 0x0, 1);   /* length[15:8] */
+    build_append_gas(use_res_count->buf, AML_AS_SYSTEM_MEMORY, 0, 0, 0, 0);
+
+    aml_append(lpi0, use_res_count);
+    aml_append(lpi0, use_res_count);
+    aml_append(lpi0, aml_string("RISC-V WFI"));
+
+    /* LPI[1] */
+    Aml *lpi1 = aml_package(10);
+    aml_append(lpi1, aml_int(10));  /* Min Residency */
+    aml_append(lpi1, aml_int(10));  /* Worst case wakeup latency */
+    aml_append(lpi1, aml_int(1));   /* Flags */
+    aml_append(lpi1, aml_int(0));   /* Arch Context loss flags */
+    aml_append(lpi1, aml_int(100)); /* Residency counter frequency */
+    aml_append(lpi1, aml_int(1));   /* Enabled parent state */
+
+    Aml *entry1 = aml_resource_template();
+    build_append_int_noprefix(entry1->buf, 0x82, 1);    /* descriptor */
+    build_append_int_noprefix(entry1->buf, 0x12, 1);    /* length[7:0] */
+    build_append_int_noprefix(entry1->buf, 0x0, 1);     /* length[15:8] */
+    build_append_gas(entry1->buf, AML_AS_FFH, 0x40, 0, 4, 0x1000000000000000);
+    aml_append(lpi1, entry1);
+    aml_append(lpi1, use_res_count);
+    aml_append(lpi1, use_res_count);
+    aml_append(lpi1, aml_string("RISC-V RET_DEFAULT"));
+
+    /* LPI[2] */
+    Aml *lpi2 = aml_package(10);
+    aml_append(lpi2, aml_int(3500)); /* Min Residency */
+    aml_append(lpi2, aml_int(100));  /* Worst case wakeup latency */
+    aml_append(lpi2, aml_int(1));    /* Flags */
+    aml_append(lpi2, aml_int(0));    /* Arch Context loss flags */
+    aml_append(lpi2, aml_int(100));  /* Residency counter frequency */
+    aml_append(lpi2, aml_int(1));    /* Enabled parent state */
+
+    Aml *entry2 = aml_resource_template();
+    build_append_int_noprefix(entry2->buf, 0x82, 1);    /* descriptor */
+    build_append_int_noprefix(entry2->buf, 0x12, 1);    /* length[7:0] */
+    build_append_int_noprefix(entry2->buf, 0x0, 1);     /* length[15:8] */
+    build_append_gas(entry2->buf, AML_AS_FFH, 0x40, 0, 4, 0x1000000080000000);
+    aml_append(lpi2, entry2);
+    aml_append(lpi2, use_res_count);
+    aml_append(lpi2, use_res_count);
+    aml_append(lpi2, aml_string("RISC-V NONRET_DEFAULT"));
+
+    /*  _LPI */
+    Aml *pkg = aml_package(6);
+    aml_append(pkg, aml_int(0)); /* Version */
+    aml_append(pkg, aml_int(0)); /* Level Index */
+    aml_append(pkg, aml_int(3)); /* Count */
+    aml_append(pkg, lpi0);
+    aml_append(pkg, lpi1);
+    aml_append(pkg, lpi2);
+
+    aml_append(dev, aml_name_decl("_LPI", pkg));
+}
+
 
 static void acpi_align_size(GArray *blob, unsigned align)
 {
@@ -130,6 +338,10 @@ static void acpi_dsdt_add_cpus(Aml *scope, RISCVVirtState *s)
             aml_append(dev, aml_name_decl("_UID",
                        aml_int(arch_ids->cpus[i].arch_id)));
 
+	    riscv_acpi_cpus_add_lpi(dev);
+	    riscv_acpi_cpus_add_psd(i, dev);
+            riscv_acpi_cpus_add_cpc(dev);
+
             /* build _MAT object */
             riscv_acpi_madt_add_rintc(i, arch_ids, madt_buf, s);
             aml_append(dev, aml_name_decl("_MAT",
@@ -141,12 +353,12 @@ static void acpi_dsdt_add_cpus(Aml *scope, RISCVVirtState *s)
     }
 }
 
-static void acpi_dsdt_add_plic_aplic(Aml *scope, uint8_t socket_count,
+static uint32_t acpi_dsdt_add_plic_aplic(Aml *scope, uint8_t socket_count,
                                      uint64_t mmio_base, uint64_t mmio_size,
                                      const char *hid)
 {
     uint64_t plic_aplic_addr;
-    uint32_t gsi_base;
+    uint32_t gsi_base = 0;
     uint8_t  socket;
 
     for (socket = 0; socket < socket_count; socket++) {
@@ -163,6 +375,8 @@ static void acpi_dsdt_add_plic_aplic(Aml *scope, uint8_t socket_count,
         aml_append(dev, aml_name_decl("_CRS", crs));
         aml_append(scope, dev);
     }
+
+    return gsi_base;
 }
 
 static void
@@ -195,6 +409,27 @@ acpi_dsdt_add_uart(Aml *scope, const MemMapEntry *uart_memmap,
     aml_append(package, pkg1);
 
     aml_append(dev, aml_name_decl("_DSD", package));
+    aml_append(scope, dev);
+}
+
+static void acpi_dsdt_add_iommu_sys(Aml *scope, const MemMapEntry *iommu_memmap,
+                                    uint32_t iommu_irq)
+{
+    uint32_t i;
+
+    Aml *dev = aml_device("IMU0");
+    aml_append(dev, aml_name_decl("_HID", aml_string("RSCV0004")));
+    aml_append(dev, aml_name_decl("_UID", aml_int(0)));
+
+    Aml *crs = aml_resource_template();
+    aml_append(crs, aml_memory32_fixed(iommu_memmap->base,
+                                       iommu_memmap->size, AML_READ_WRITE));
+    for (i = iommu_irq; i < iommu_irq + 4; i++) {
+        aml_append(crs, aml_interrupt(AML_CONSUMER, AML_EDGE, AML_ACTIVE_LOW,
+                                      AML_EXCLUSIVE, &i, 1));
+    }
+
+    aml_append(dev, aml_name_decl("_CRS", crs));
     aml_append(scope, dev);
 }
 
@@ -412,15 +647,106 @@ static void build_fadt_rev6(GArray *table_data,
     build_fadt(table_data, linker, &fadt, s->oem_id, s->oem_table_id);
 }
 
+static void acpi_add_sysmsi_intc_mbox(Aml *scope, uint32_t gsi_base)
+{
+    Aml *mbdev = aml_device("SMMB");
+
+    aml_append(mbdev, aml_name_decl("_HID", aml_string("RSCV0005")));
+    aml_append(mbdev, aml_name_decl("_UID", aml_int(0)));
+    Aml *mbpkg = aml_package(2);
+    aml_append(mbpkg, aml_string("#mbox-cells"));
+    aml_append(mbpkg, aml_int(2));
+
+    Aml *mbUUID = aml_touuid("DAFFD814-6EBA-4D8C-8A91-BC9BBF4AA301");
+
+    Aml *mbpkg1 = aml_package(1);
+    aml_append(mbpkg1, mbpkg);
+
+    Aml *mbpackage = aml_package(2);
+    aml_append(mbpackage, mbUUID);
+    aml_append(mbpackage, mbpkg1);
+
+    aml_append(mbdev, aml_name_decl("_DSD", mbpackage));
+    aml_append(scope, mbdev);
+
+    Aml *dep_pkg = aml_package(1);
+    aml_append(dep_pkg, aml_name("\\_SB.SMMB"));
+    Aml *intcdev = aml_device("SMSI");
+    aml_append(intcdev, aml_name_decl("_HID", aml_string("RSCV0006")));
+    aml_append(intcdev, aml_name_decl("_UID", aml_int(0)));
+    aml_append(intcdev, aml_name_decl("_GSB", aml_int(gsi_base)));
+    aml_append(intcdev, aml_name_decl("_DEP", dep_pkg));
+
+    Aml *pkg = aml_package(2);
+    aml_append(pkg, aml_string("mboxes"));
+
+    Aml *subpkg = aml_package(3);
+    aml_append(subpkg, aml_string("\\_SB.SMMB"));
+    aml_append(subpkg, aml_int(0x1000));
+    aml_append(subpkg, aml_int(0));
+    aml_append(pkg, subpkg);
+
+    Aml *UUID = aml_touuid("DAFFD814-6EBA-4D8C-8A91-BC9BBF4AA301");
+
+    Aml *pkg1 = aml_package(1);
+    aml_append(pkg1, pkg);
+
+    Aml *package = aml_package(2);
+    aml_append(package, UUID);
+    aml_append(package, pkg1);
+
+    aml_append(intcdev, aml_name_decl("_DSD", package));
+    aml_append(scope, intcdev);
+}
+
+static void build_riscv_sysmsi_ged_aml(Aml *table, uint32_t ged_irq_base,
+                                       uint32_t ged_num_irq, RISCVVirtState *s)
+{
+    Aml *crs = aml_resource_template();
+    Aml *evt;
+    Aml *dev = aml_device("MGED");
+    Aml *if_arg0;
+    uint32_t irq = s->sysmsi_gsi_base + ged_irq_base;
+    uint32_t gsi_power_down = s->sysmsi_gsi_base + RPMI_SYS_MSI_SHUTDOWN_INDEX;
+    uint32_t i;
+
+    /* _CRS interrupt */
+    for (i = 0; i < ged_num_irq; i++) {
+        aml_append(crs, aml_interrupt(AML_CONSUMER, AML_EDGE, AML_ACTIVE_HIGH,
+                                      AML_EXCLUSIVE, &irq, 1));
+        irq++;
+    }
+
+    aml_append(dev, aml_name_decl("_HID", aml_string("ACPI0013")));
+    aml_append(dev, aml_name_decl("_UID", aml_string(GED_DEVICE)));
+    aml_append(dev, aml_name_decl("_CRS", crs));
+
+    evt = aml_method("_EVT", 1, AML_SERIALIZED);
+    {
+       /* Support only POWERDOWN for now */
+       if_arg0 = aml_if(aml_equal(aml_arg(0), aml_int(gsi_power_down)));
+       aml_append(if_arg0,
+                       aml_notify(aml_name(ACPI_POWER_BUTTON_DEVICE),
+                                  aml_int(0x80)));
+       aml_append(evt, if_arg0);
+    }
+
+    /* Append _EVT method */
+    aml_append(dev, evt);
+
+    aml_append(table, dev);
+}
+
 /* DSDT */
 static void build_dsdt(GArray *table_data,
                        BIOSLinker *linker,
                        RISCVVirtState *s)
 {
-    Aml *scope, *dsdt;
+    const MemMapEntry *memmap = s->memmap;
     MachineState *ms = MACHINE(s);
     uint8_t socket_count;
-    const MemMapEntry *memmap = s->memmap;
+    Aml *scope, *dsdt;
+    uint32_t gsi_base;
     AcpiTable table = { .sig = "DSDT", .rev = 2, .oem_id = s->oem_id,
                         .oem_table_id = s->oem_table_id };
 
@@ -436,21 +762,35 @@ static void build_dsdt(GArray *table_data,
      */
     scope = aml_scope("\\_SB");
     acpi_dsdt_add_cpus(scope, s);
+    acpi_dsdt_add_plat_osc(scope);
 
     fw_cfg_acpi_dsdt_add(scope, &memmap[VIRT_FW_CFG]);
 
     socket_count = riscv_socket_count(ms);
 
     if (s->aia_type == VIRT_AIA_TYPE_NONE) {
-        acpi_dsdt_add_plic_aplic(scope, socket_count, memmap[VIRT_PLIC].base,
-                                 memmap[VIRT_PLIC].size, "RSCV0001");
+        gsi_base = acpi_dsdt_add_plic_aplic(scope, socket_count,
+                                            memmap[VIRT_PLIC].base,
+                                            memmap[VIRT_PLIC].size,
+                                            "RSCV0001");
     } else {
-        acpi_dsdt_add_plic_aplic(scope, socket_count, memmap[VIRT_APLIC_S].base,
-                                 memmap[VIRT_APLIC_S].size, "RSCV0002");
+	gsi_base = acpi_dsdt_add_plic_aplic(scope, socket_count,
+                                            memmap[VIRT_APLIC_S].base,
+                                            memmap[VIRT_APLIC_S].size,
+                                            "RSCV0002");
+    }
+
+    if (s->have_rpmi && s->aia_type == VIRT_AIA_TYPE_APLIC_IMSIC) {
+        gsi_base += VIRT_IRQCHIP_NUM_SOURCES + 1;
+        s->sysmsi_gsi_base = gsi_base;
+        acpi_add_sysmsi_intc_mbox(scope, gsi_base);
+	build_riscv_sysmsi_ged_aml(scope, RPMI_SYS_MSI_SHUTDOWN_INDEX, 3, s);
     }
 
     acpi_dsdt_add_uart(scope, &memmap[VIRT_UART0], UART0_IRQ);
-
+    if (virt_is_iommu_sys_enabled(s)) {
+        acpi_dsdt_add_iommu_sys(scope, &memmap[VIRT_IOMMU_SYS], IOMMU_SYS_IRQ);
+    }
     if (socket_count == 1) {
         virtio_acpi_dsdt_add(scope, memmap[VIRT_VIRTIO].base,
                              memmap[VIRT_VIRTIO].size,
@@ -470,6 +810,9 @@ static void build_dsdt(GArray *table_data,
         acpi_dsdt_add_gpex_host(scope, PCIE_IRQ + VIRT_IRQCHIP_NUM_SOURCES * 2);
     }
 
+    if (s->have_rpmi && s->aia_type == VIRT_AIA_TYPE_APLIC_IMSIC) {
+        acpi_dsdt_add_power_button(scope);
+    }
     aml_append(dsdt, scope);
 
     /* copy AML table into ACPI tables blob and patch header there */
@@ -602,6 +945,155 @@ static void build_madt(GArray *table_data,
     acpi_table_end(linker, &table);
 }
 
+#define ID_MAPPING_ENTRY_SIZE 20
+#define IOMMU_ENTRY_SIZE 40
+#define RISCV_INTERRUPT_WIRE_OFFSSET 40
+#define ROOT_COMPLEX_ENTRY_SIZE 20
+#define RIMT_NODE_OFFSET 48
+
+static void build_rimt_id_mapping(GArray *table_data, uint32_t input_base,
+                                  uint32_t id_count, uint32_t out_ref)
+{
+    /* Table 4 ID mapping format */
+    build_append_int_noprefix(table_data, input_base, 4); /* Input base */
+    build_append_int_noprefix(table_data, id_count, 4); /* Number of IDs */
+    build_append_int_noprefix(table_data, input_base, 4); /* Output base */
+    build_append_int_noprefix(table_data, out_ref, 4); /* Output Reference */
+    build_append_int_noprefix(table_data, 0, 4); /* Flags */
+}
+
+struct AcpiRimtIdMapping {
+    uint32_t input_base;
+    uint32_t id_count;
+};
+typedef struct AcpiRimtIdMapping AcpiRimtIdMapping;
+
+/* Build the rimt ID mapping to IOMMU for a given PCI host bridge */
+static int rimt_host_bridges(Object *obj, void *opaque)
+{
+    GArray *idmap_blob = opaque;
+
+    if (object_dynamic_cast(obj, TYPE_PCI_HOST_BRIDGE)) {
+        PCIBus *bus = PCI_HOST_BRIDGE(obj)->bus;
+
+        if (bus && !pci_bus_bypass_iommu(bus)) {
+            int min_bus, max_bus;
+
+            pci_bus_range(bus, &min_bus, &max_bus);
+
+            AcpiRimtIdMapping idmap = {
+                .input_base = min_bus << 8,
+                .id_count = (max_bus - min_bus + 1) << 8,
+            };
+            g_array_append_val(idmap_blob, idmap);
+        }
+    }
+
+    return 0;
+}
+
+static int rimt_idmap_compare(gconstpointer a, gconstpointer b)
+{
+    AcpiRimtIdMapping *idmap_a = (AcpiRimtIdMapping *)a;
+    AcpiRimtIdMapping *idmap_b = (AcpiRimtIdMapping *)b;
+
+    return idmap_a->input_base - idmap_b->input_base;
+}
+
+/*
+ * Input Output Remapping Table (RIMT)
+ * Conforms to "IO Remapping Table System Software on ARM Platforms",
+ * Document number: ARM DEN 50E.b, Feb 2021
+ */
+static void build_rimt(GArray *table_data, BIOSLinker *linker,
+                       RISCVVirtState *s)
+{
+    int i, nb_nodes, rc_mapping_count;
+    size_t node_size, iommu_offset = 0;
+    uint32_t id = 0;
+    GArray *iommu_idmaps = g_array_new(false, true, sizeof(AcpiRimtIdMapping));
+
+    AcpiTable table = { .sig = "RIMT", .rev = 1, .oem_id = s->oem_id,
+                        .oem_table_id = s->oem_table_id };
+
+    acpi_table_begin(&table, table_data);
+
+    object_child_foreach_recursive(object_get_root(),
+                                   rimt_host_bridges, iommu_idmaps);
+
+    /* Sort the iommu idmap by input_base */
+    g_array_sort(iommu_idmaps, rimt_idmap_compare);
+
+    nb_nodes = 2; /* RC, IOMMU */
+    rc_mapping_count = iommu_idmaps->len;
+    /* Number of RIMT Nodes */
+    build_append_int_noprefix(table_data, nb_nodes, 4);
+
+    /* Offset to Array of RIMT Nodes */
+    build_append_int_noprefix(table_data, RIMT_NODE_OFFSET, 4);
+    build_append_int_noprefix(table_data, 0, 4); /* Reserved */
+
+    iommu_offset = table_data->len - table.table_offset;
+    /*  IOMMU Device Structure */
+    build_append_int_noprefix(table_data, 0 /* IOMMU */, 1); /* Type */
+    build_append_int_noprefix(table_data, 1, 1); /* Revision */
+    node_size =  IOMMU_ENTRY_SIZE;
+    build_append_int_noprefix(table_data, node_size, 2); /* Length */
+    build_append_int_noprefix(table_data, 0, 2); /* reserved */
+    build_append_int_noprefix(table_data, id++, 2); /* ID */
+    build_append_int_noprefix(table_data, 0, 8); /* hwid */
+    if (virt_is_iommu_sys_enabled(s)) {
+        /* IOMMU Base Address */
+        build_append_int_noprefix(table_data, s->memmap[VIRT_IOMMU_SYS].base, 8);
+        build_append_int_noprefix(table_data, 0, 4); /* Flags */
+    } else {
+        build_append_int_noprefix(table_data, 0, 8); /* Base Address */
+        build_append_int_noprefix(table_data, 1, 4); /* Flags */
+    }
+
+    build_append_int_noprefix(table_data, 0, 4); /* Proximity Domain - TODO */
+    /* MCFG pci_segment */
+    build_append_int_noprefix(table_data, 0, 2); /* PCI Segment number */
+    build_append_int_noprefix(table_data, iommu_bdf, 2); /* BDF - TODO */
+    build_append_int_noprefix(table_data, 0, 2); /* Number of Wired Interrupts */
+    build_append_int_noprefix(table_data, RISCV_INTERRUPT_WIRE_OFFSSET, 2); /* Interrupt wire offset*/
+
+    /* PCIe Root Complex Device Binding Structure */
+    build_append_int_noprefix(table_data, 1 /* Root complex */, 1); /* Type */
+    build_append_int_noprefix(table_data, 1, 1); /* Revision */
+    node_size =  ROOT_COMPLEX_ENTRY_SIZE +
+                 ID_MAPPING_ENTRY_SIZE * rc_mapping_count;
+    build_append_int_noprefix(table_data, node_size, 2); /* Length */
+    build_append_int_noprefix(table_data, 0, 2); /* Reserved */
+    build_append_int_noprefix(table_data, id++, 2); /* Identifier */
+    build_append_int_noprefix(table_data, 0, 4); /* Flags - TODO*/
+    build_append_int_noprefix(table_data, 0, 2); /* PCI Segment number */
+    build_append_int_noprefix(table_data, 0, 2); /* Reserved */
+    /* Reference to ID Array */
+    build_append_int_noprefix(table_data, ROOT_COMPLEX_ENTRY_SIZE, 2);
+    /* Number of ID mappings */
+    build_append_int_noprefix(table_data, rc_mapping_count, 2);
+
+    /* Output Reference */
+    AcpiRimtIdMapping *range;
+
+    /* translated RIDs connect to IOMMU node */
+    for (i = 0; i < iommu_idmaps->len; i++) {
+        range = &g_array_index(iommu_idmaps, AcpiRimtIdMapping, i);
+        if (virt_is_iommu_sys_enabled(s)) {
+            range->input_base = 0;
+        } else {
+            range->input_base = iommu_bdf + 1;
+        }
+        range->id_count = 0xffff - iommu_bdf;
+        build_rimt_id_mapping(table_data, range->input_base,
+                              range->id_count, iommu_offset);
+    }
+
+    acpi_table_end(linker, &table);
+    g_array_free(iommu_idmaps, true);
+}
+
 /*
  * ACPI spec, Revision 6.5+
  * 5.2.16 System Resource Affinity Table (SRAT)
@@ -678,6 +1170,11 @@ static void virt_acpi_build(RISCVVirtState *s, AcpiBuildTables *tables)
 
     acpi_add_table(table_offsets, tables_blob);
     build_rhct(tables_blob, tables->linker, s);
+
+    if (virt_is_iommu_sys_enabled(s) || iommu_bdf) {
+        acpi_add_table(table_offsets, tables_blob);
+        build_rimt(tables_blob, tables->linker, s);
+    }
 
     acpi_add_table(table_offsets, tables_blob);
     spcr_setup(tables_blob, tables->linker, s);
