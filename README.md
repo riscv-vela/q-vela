@@ -1,5 +1,6 @@
 # RISC-V Ras-ERI emulation in QEMU
 ## How to build
+- git clone --recursive https://github.com/riscv-vela/q-vela-ras 
 - First, Go to patch/README.md
 - Build dependency
 ```shell
