@@ -2,6 +2,11 @@
 ## How to build
 - First, Go to patch/README.md
 - Build dependency
+```shell
+apt install -y isal libslirp0 file unzip rsync pip python3-sphinx python3-sphinx-rtd-theme
+ninja-build pkg-config libglib2.0-dev gcc-riscv64-linux-gnu vim build-essential bc
+libncurses5-dev bin86 libssl-dev bison flex libelf-dev
+```
 ### QEMU build
 ```shell
 ./configure --target-list=riscv64-softmmu --enable-slirp
