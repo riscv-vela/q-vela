@@ -24,7 +24,7 @@ If you build dependency, you can find
 
 --- 
 ```shell
-/path/to/qemu-system-riscv64 \
+q-vela-ras/qemu/build/qemu-system-riscv64 \
 -s -accel tcg -m 4096 -smp 2 \
 -serial mon:stdio \
 -d guest_errors -D ./qemu.log \
