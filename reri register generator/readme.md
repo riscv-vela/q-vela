@@ -33,3 +33,11 @@ devmem $((Control_Register+4)) {value}
 
 <img width="1201" height="344" alt="Image" src="https://github.com/user-attachments/assets/27d6ce84-f16e-479a-822f-07a600b23363" />
 
+## RERI Specification
+https://github.com/riscv-non-isa/riscv-ras-eri
+기본적으로 RERI spec은 해당 문서를 기반으로 하며,
+Control Register는 P.16
+Status Register는 P.19
+를 통해 구조를 확인할 수 있습니다.
+
+
