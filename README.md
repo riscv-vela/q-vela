@@ -37,7 +37,7 @@ If you build dependency, you can find
 -blockdev node-name=pflash0,driver=file,read-only=on,filename=/root/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_CODE.fd \
 -blockdev node-name=pflash1,driver=file,filename=/root/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_VARS.fd \
 -M virt,pflash0=pflash0,pflash1=pflash1,rpmi=true,reri=true,aia=aplic-imsic \
--kernel /root/build/kernel/arch/riscv/boot/Image \
+-kernel q-vela-ras/linux/arch/riscv/boot/Image \
 -initrd /root/buildroot/output/images/rootfs.cpio \
 -append "root=/dev/ram rw console=ttyS0 earlycon=uart8250,mmio,0x10000000"
 ```
