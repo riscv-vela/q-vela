@@ -56,9 +56,9 @@ make CROSS_COMPILE=riscv64-linux-gnu- PLATFORM_RISCV_XLEN=64 PLATFORM=generic
 ```
 ## How to build linux kernel
 ```shell
-make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- O=~/build/kernel mrproper
-make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- O=~/build/kernel defconfig
-make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- O=~/build/kernel menuconfig
+make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- mrproper
+make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- defconfig
+make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- menuconfig
 # Need to check (default, but need to check)
 # CONFIG_RISCV_SSE=y
 # CONFIG_HAVE_ACPI_APEI=y
