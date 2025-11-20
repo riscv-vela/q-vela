@@ -1,7 +1,7 @@
 # RISC-V Ras-ERI emulation in QEMU
 ## How to build
 - git clone --recursive https://github.com/riscv-vela/q-vela-ras 
-- First, Go to patch/README.md
+- First, Go to [patch/README](patch/README.md)
 - Build dependency
 ```shell
 apt install -y isal libslirp0 file unzip rsync pip python3-sphinx python3-sphinx-rtd-theme
