@@ -1,9 +1,16 @@
 #!/bin/bash
 
-export WORKSPACE =`pwd`
+CUR_DIR="$(pwd)"
 
-cd opensbi
-patch -p1 -f < $WORKSPACE/patch/opensbi_reri.patch
+if [[ -d "patch" ]]; then
+    PATCH_DIR="$CUR_DIR/patch"
+    cd opensbi || { echo "❌ opensbi 디렉토리 없음"; exit 1; }
+else
+    PATCH_DIR="$CUR_DIR"
+    cd ../opensbi || { echo "❌ ../opensbi 디렉토리 없음"; exit 1; }
+fi
 
-# after patching
-	# make CROSS_COMPILE=riscv64-linux-gnu- PLATFORM_RISCV_XLEN=64 PLATFORM=generic -j22
+# 패치 적용
+patch -p1 -f < "$PATCH_DIR/opensbi_reri.patch"
+
+echo "✅ PATCH COMPLETE"
