@@ -45,8 +45,8 @@ source edk2/edksetup.sh --reconfig
 make -C edk2/BaseTools
 source edk2/edksetup.sh BaseTools
 build -a RISCV64 --buildtarget RELEASE -p OvmfPkg/RiscVVirt/RiscVVirtQemu.dsc -t GCC5
-truncate -s 32M /root/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_CODE.fd
-truncate -s 32M /root/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_VARS.fd
+truncate -s 32M $WORKSPACE/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_CODE.fd
+truncate -s 32M $WORKSPACE/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_VARS.fd
 ```
 ## How to build opensbi
 - Run opensbi_patch.sh
