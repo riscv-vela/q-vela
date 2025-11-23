@@ -65,5 +65,5 @@ make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- menuconfig
 # CONFIG_ACPI_APEI=y
 # CONFIG_ACPI_APEI_GHES=y
 # CONFIG_ACPI_APEI_SSE=y
-make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- O=~/build/kernel -j $(nproc)
+make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- -j $(nproc)
 ```
