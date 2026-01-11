@@ -5444,3 +5444,916 @@ GEN_VEXT_INT_EXT(vsext_vf2_d, int64_t, int32_t, H8, H4)
 GEN_VEXT_INT_EXT(vsext_vf4_w, int32_t, int8_t,  H4, H1)
 GEN_VEXT_INT_EXT(vsext_vf4_d, int64_t, int16_t, H8, H2)
 GEN_VEXT_INT_EXT(vsext_vf8_d, int64_t, int8_t,  H8, H1)
+
+/*
+static void
+vext_vlshfte(void *vd, void *v0, target_ulong base,
+             target_ulong index, CPURISCVState *env, uint32_t desc,
+             uint32_t vm, vext_ldst_elem_fn_tlb *ldst_elem,
+             uint32_t log2_esz, uintptr_t ra)
+{
+    uint32_t k = 0;
+    uint32_t nf = vext_nf(desc);
+    uint32_t max_elems = vext_max_elems(desc, log2_esz);
+    uint32_t esz = 1 << log2_esz;
+    uint32_t vma = vext_vma(desc);
+
+    VSTART_CHECK_EARLY_EXIT(env);
+
+    uint32_t parent_index = index;
+
+    while (1) {  
+        if (!vm && !vext_elem_mask(v0, k)) {
+            k++;
+            continue;
+        }
+
+        target_ulong addr = base + parent_index * esz;
+        ldst_elem(env, adjust_addr(env, addr), env->vl - 1 - k, vd, ra);
+
+        if (parent_index == 0) {  
+            break;
+        }
+
+        parent_index = (parent_index - 1) / 2;
+        k++;
+
+        if (k >= env->vl) {
+            break;
+        }
+    }
+
+    while (k < env->vl) {  
+        vext_set_elems_1s(vd, vma, env->vl - 1 - k, env->vl - k);
+        k++;
+    }
+
+    env->vstart = 0;
+    vext_set_tail_elems_1s(env->vl, vd, desc, nf, esz, max_elems);
+}
+
+#define GEN_VEXT_VLSHFTE(NAME, ETYPE, LOAD_FN)                        \
+void HELPER(NAME)(void *vd, void *v0, target_ulong base,               \
+                  target_ulong index, CPURISCVState *env,              \
+                  uint32_t desc)                                        \
+{                                                                       \
+    uint32_t vm = vext_vm(desc);                                        \
+    vext_vlshfte(vd, v0, base, index, env, desc, vm, LOAD_FN,         \
+                 ctzl(sizeof(ETYPE)), GETPC());                         \
+}
+
+GEN_VEXT_VLSHFTE(vlshfte8_v,  int8_t,  lde_b_tlb)
+GEN_VEXT_VLSHFTE(vlshfte16_v, int16_t, lde_h_tlb)
+GEN_VEXT_VLSHFTE(vlshfte32_v, int32_t, lde_w_tlb)
+GEN_VEXT_VLSHFTE(vlshfte64_v, int64_t, lde_d_tlb)
+*/
+
+// print root node -> edge node
+/*
+static void
+vext_vlshfte(void *vd, void *v0, target_ulong base,
+             target_ulong index, CPURISCVState *env, uint32_t desc,
+             uint32_t vm, vext_ldst_elem_fn_tlb *ldst_elem,
+             uint32_t log2_esz, uintptr_t ra)
+{
+    uint32_t k = 0;
+    uint32_t nf = vext_nf(desc);
+    uint32_t max_elems = vext_max_elems(desc, log2_esz);
+    uint32_t esz = 1 << log2_esz;
+    uint32_t vma = vext_vma(desc);
+
+    VSTART_CHECK_EARLY_EXIT(env);
+
+    uint32_t parent_index = (index - 1) / 2;
+
+    while (1) {  
+        if (!vm && !vext_elem_mask(v0, k)) {
+            k++;
+            continue;
+        }
+
+        target_ulong addr = base + parent_index * esz;
+        ldst_elem(env, adjust_addr(env, addr), env->vl - 1 - k, vd, ra);
+
+        if (parent_index == 0) {  
+            break;
+        }
+
+        parent_index = (parent_index - 1) / 2;
+        k++;
+
+        if (k >= env->vl) {
+            break;
+        }
+    }
+
+    while (k < env->vl) {  
+        vext_set_elems_1s(vd, vma, env->vl - 1 - k, env->vl - k);
+        k++;
+    }
+
+    env->vstart = 0;
+    vext_set_tail_elems_1s(env->vl, vd, desc, nf, esz, max_elems);
+}
+
+#define GEN_VEXT_VLSHFTE(NAME, ETYPE, LOAD_FN)                        \
+void HELPER(NAME)(void *vd, void *v0, target_ulong base,               \
+                  target_ulong index, CPURISCVState *env,              \
+                  uint32_t desc)                                        \
+{                                                                       \
+    uint32_t vm = vext_vm(desc);                                        \
+    vext_vlshfte(vd, v0, base, index, env, desc, vm, LOAD_FN,         \
+                 ctzl(sizeof(ETYPE)), GETPC());                         \
+}
+
+GEN_VEXT_VLSHFTE(vlshfte8_v,  int8_t,  lde_b_tlb)
+GEN_VEXT_VLSHFTE(vlshfte16_v, int16_t, lde_h_tlb)
+GEN_VEXT_VLSHFTE(vlshfte32_v, int32_t, lde_w_tlb)
+GEN_VEXT_VLSHFTE(vlshfte64_v, int64_t, lde_d_tlb)
+*/
+
+// print edge node -> root node
+/*
+static void
+vext_vlshfte(void *vd, void *v0, target_ulong base,
+             target_ulong index, CPURISCVState *env, uint32_t desc,
+             uint32_t vm, vext_ldst_elem_fn_tlb *ldst_elem,
+             uint32_t log2_esz, uintptr_t ra)
+{
+    uint32_t k = 0;
+    uint32_t nf = vext_nf(desc);
+    uint32_t max_elems = vext_max_elems(desc, log2_esz);
+    uint32_t esz = 1 << log2_esz;
+    uint32_t vma = vext_vma(desc);
+
+    VSTART_CHECK_EARLY_EXIT(env);
+
+    uint32_t parent_index = (index - 1) / 2;
+
+    while (1) {  
+        if (!vm && !vext_elem_mask(v0, k)) {
+            k++;
+            continue;
+        }
+
+        target_ulong addr = base + parent_index * esz;
+        ldst_elem(env, adjust_addr(env, addr), k, vd, ra);
+
+        if (parent_index == 0) {
+            break;
+        }   
+
+        parent_index = (parent_index - 1) / 2;
+        k++;
+
+        if (k >= env->vl) {
+            break;
+        }   
+    }   
+
+    while (k < env->vl) {
+        vext_set_elems_1s(vd, vma, k, env->vl - k);
+        k++;
+    }   
+
+    env->vstart = 0;
+    vext_set_tail_elems_1s(env->vl, vd, desc, nf, esz, max_elems);
+}   
+
+#define GEN_VEXT_VLSHFTE(NAME, ETYPE, LOAD_FN)                        \
+void HELPER(NAME)(void *vd, void *v0, target_ulong base,               \
+                  target_ulong index, CPURISCVState *env,              \
+                  uint32_t desc)                                        \
+{                                                                       \
+    uint32_t vm = vext_vm(desc);                                        \
+    vext_vlshfte(vd, v0, base, index, env, desc, vm, LOAD_FN,         \
+                 ctzl(sizeof(ETYPE)), GETPC());                         \
+}
+
+GEN_VEXT_VLSHFTE(vlshfte8_v,  int8_t,  lde_b_tlb)
+GEN_VEXT_VLSHFTE(vlshfte16_v, int16_t, lde_h_tlb)
+GEN_VEXT_VLSHFTE(vlshfte32_v, int32_t, lde_w_tlb)
+GEN_VEXT_VLSHFTE(vlshfte64_v, int64_t, lde_d_tlb)
+*/
+
+static void vext_vlshfte(void *vd, void *v0, target_ulong base,
+             target_ulong index, CPURISCVState *env, uint32_t desc,
+             uint32_t vm, vext_ldst_elem_fn_tlb *ldst_elem,
+             uint32_t log2_esz, uintptr_t ra)
+{
+    uint32_t k = 0;
+    uint32_t nf = vext_nf(desc);
+    uint32_t max_elems = vext_max_elems(desc, log2_esz);
+    uint32_t esz = 1 << log2_esz;
+
+    VSTART_CHECK_EARLY_EXIT(env, env->vl);
+
+    uint64_t max_value =0;
+    if(esz==8)
+            max_value=UINT64_MAX;
+    else
+        max_value= (1ULL << (esz * 8)) - 1;
+
+    uint8_t *vec= (uint8_t *)vd;
+    printf("index : %lu\n",index);
+/*    for(int i=0;i<8;i++){
+           printf("base : %lu\n",base+(i*esz));
+    }*/
+    uint32_t parent_index = index;
+    while (parent_index > 0) {
+        parent_index = (parent_index - 1) / 2;
+        //printf("parent_index %u\n",parent_index);
+        if (!vm && !vext_elem_mask(v0, k)) {
+            k++;
+            continue;
+        }
+
+        target_ulong addr = base + parent_index * esz;
+        //printf("target addr : %lu\n",addr);
+        ldst_elem(env, adjust_addr(env, addr), k, vec, ra);
+        k++;
+
+        if (k >= env->vl) {
+            break;
+        }
+    }
+    while (k < env->vl) {
+        switch (esz) {
+            case 1:
+                vec[k] = (uint8_t)max_value;
+                break;
+            case 2:
+                ((uint16_t *)vec)[k] = (uint16_t)max_value;
+                break;
+            case 4:
+                ((uint32_t *)vec)[k] = (uint32_t)max_value;
+                break;
+            case 8:
+                ((uint64_t *)vec)[k] = (uint64_t)max_value;
+                break;
+        }
+        k++;
+    }
+
+    env->vstart = 0;
+    vext_set_tail_elems_1s(env->vl, vd, desc, nf, esz, max_elems);
+}
+
+#define GEN_VEXT_VLSHFTE(NAME, ETYPE, LOAD_FN)                        \
+void HELPER(NAME)(void *vd, void *v0, target_ulong base,               \
+                  target_ulong index, CPURISCVState *env,              \
+                  uint32_t desc)                                        \
+{                                                                       \
+    uint32_t vm = vext_vm(desc);                                        \
+    vext_vlshfte(vd, v0, base, index, env, desc, vm, LOAD_FN,         \
+                 ctzl(sizeof(ETYPE)), GETPC());                         \
+}
+
+GEN_VEXT_VLSHFTE(vlshfte8_v,  int8_t,  lde_b_tlb)
+GEN_VEXT_VLSHFTE(vlshfte16_v, int16_t, lde_h_tlb)
+GEN_VEXT_VLSHFTE(vlshfte32_v, int32_t, lde_w_tlb)
+GEN_VEXT_VLSHFTE(vlshfte64_v, int64_t, lde_d_tlb)
+
+/*
+static void vext_vsshfte(void *vs, void *v0, target_ulong base,
+                         target_ulong index, CPURISCVState *env, uint32_t desc,
+                         uint32_t vm, vext_ldst_elem_fn_tlb *ldst_elem,
+                         uint32_t log2_esz, uintptr_t ra) {
+    uint32_t k = 0;
+    uint32_t nf = vext_nf(desc);
+    uint32_t max_elems = vext_max_elems(desc, log2_esz);
+    uint32_t esz = 1 << log2_esz;
+    uint32_t vma = vext_vma(desc);
+
+    VSTART_CHECK_EARLY_EXIT(env);
+
+    uint32_t parent_index = index;
+
+    // Traverse the tree upwards and apply the values
+    while (parent_index > 0) {
+        target_ulong addr = base + parent_index * esz;
+        if (!vm && !vext_elem_mask(v0, k)) {
+            k++;
+            continue;
+        }
+        ldst_elem(env, adjust_addr(env, addr), env->vl - 1 - k, vs, ra);
+
+        // Move up to the parent node
+        parent_index = (parent_index - 1) / 2;
+        k++;
+
+        if (k >= env->vl) {
+            break;
+        }
+    }
+
+    // Handle the root node
+    if (parent_index == 0) {
+        target_ulong addr = base + parent_index * esz;
+        ldst_elem(env, adjust_addr(env, addr), env->vl - 1 - k, vs, ra);
+    }
+
+    // Fill the remaining elements with 1s as per the original logic
+    while (k < env->vl) {
+        vext_set_elems_1s(vs, vma, env->vl - 1 - k, env->vl - k);
+        k++;
+    }
+
+    env->vstart = 0;
+    vext_set_tail_elems_1s(env->vl, vs, desc, nf, esz, max_elems);
+}
+
+#define GEN_VEXT_VSSHFT(NAME, ETYPE, STORE_FN)                        \
+void HELPER(NAME)(void *vs, void *v0, target_ulong base,               \
+                  target_ulong index, CPURISCVState *env,              \
+                  uint32_t desc)                                        \
+{                                                                       \
+    uint32_t vm = vext_vm(desc);                                        \
+    vext_vsshfte(vs, v0, base, index, env, desc, vm, STORE_FN,        \
+                 ctzl(sizeof(ETYPE)), GETPC());                         \
+}
+
+GEN_VEXT_VSSHFT(vsshfte8_v,  int8_t,  ste_b_tlb)
+GEN_VEXT_VSSHFT(vsshfte16_v, int16_t, ste_h_tlb)
+GEN_VEXT_VSSHFT(vsshfte32_v, int32_t, ste_w_tlb)
+GEN_VEXT_VSSHFT(vsshfte64_v, int64_t, ste_d_tlb)
+*/
+/*
+static void vext_vsshfte(void *vs, void *v0, target_ulong base,
+                         target_ulong index, CPURISCVState *env, uint32_t desc,
+                         uint32_t vm, vext_ldst_elem_fn_tlb *ldst_elem,
+                         uint32_t log2_esz, uintptr_t ra) {
+    uint32_t k = 0;
+    uint32_t nf = vext_nf(desc);
+    uint32_t max_elems = vext_max_elems(desc, log2_esz);
+    uint32_t esz = 1 << log2_esz;
+
+    VSTART_CHECK_EARLY_EXIT(env);
+
+    uint32_t parent_index = index;
+
+    while (parent_index > 0) {
+        target_ulong addr = base + parent_index * esz;
+        if (!vm && !vext_elem_mask(v0, k)) {
+            k++;
+            continue;
+        }
+        ldst_elem(env, adjust_addr(env, addr), k, vs, ra);
+
+        parent_index = (parent_index - 1) / 2;
+        k++;
+
+        if (k >= env->vl) {
+            break;
+        }
+    }
+
+    if (parent_index == 0) {
+        target_ulong addr = base + parent_index * esz;
+        ldst_elem(env, adjust_addr(env, addr), k, vs, ra);
+    }
+
+    env->vstart = 0;
+    vext_set_tail_elems_1s(env->vl, vs, desc, nf, esz, max_elems);
+}
+
+#define GEN_VEXT_VSSHFT(NAME, ETYPE, STORE_FN)                        \
+void HELPER(NAME)(void *vs, void *v0, target_ulong base,               \
+                  target_ulong index, CPURISCVState *env,              \
+                  uint32_t desc)                                        \
+{                                                                       \
+    uint32_t vm = vext_vm(desc);                                        \
+    vext_vsshfte(vs, v0, base, index, env, desc, vm, STORE_FN,        \
+                 ctzl(sizeof(ETYPE)), GETPC());                         \
+}
+
+GEN_VEXT_VSSHFT(vsshfte8_v,  int8_t,  ste_b_tlb)
+GEN_VEXT_VSSHFT(vsshfte16_v, int16_t, ste_h_tlb)
+GEN_VEXT_VSSHFT(vsshfte32_v, int32_t, ste_w_tlb)
+GEN_VEXT_VSSHFT(vsshfte64_v, int64_t, ste_d_tlb)
+*/
+
+static void vext_vsshfte(void *vs, void *v0, target_ulong base,
+                         target_ulong index, CPURISCVState *env, uint32_t desc,
+                         uint32_t vm, vext_ldst_elem_fn_tlb *ldst_elem,
+                         uint32_t log2_esz, uintptr_t ra) {//myunghyun
+    uint32_t k = 0;
+    uint32_t nf = vext_nf(desc);
+    uint32_t max_elems = vext_max_elems(desc, log2_esz);
+    uint32_t esz = 1 << log2_esz;
+/*    uint64_t *vs3=(uint64_t *)vs;
+    for(int i=0;i<8;i++){
+            printf("vs3[%d] = %lu\n",i,vs3[i]);
+    }
+    printf(" base: %lu\n",base);*/
+    VSTART_CHECK_EARLY_EXIT(env, env->vl);
+
+    uint32_t parent_index = index;
+
+    while (parent_index > 0) {
+        target_ulong addr = base + parent_index * esz;
+
+        //printf("parent: %d, addr : %lu\n",parent_index, addr);
+
+        if (!vm && !vext_elem_mask(v0, k)) {
+            k++;
+            continue;
+        }
+        ldst_elem(env, adjust_addr(env, addr), k, vs, ra);
+
+        parent_index = (parent_index - 1) / 2;
+        k++;
+
+        if (k >= env->vl) {
+            break;
+        }
+    }
+
+    if (parent_index == 0) {
+        target_ulong addr = base + parent_index * esz;
+        ldst_elem(env, adjust_addr(env, addr), k, vs, ra);
+    }
+
+    env->vstart = 0;
+    vext_set_tail_elems_1s(env->vl, vs, desc, nf, esz, max_elems);
+}
+
+#define GEN_VEXT_VSSHFT(NAME, ETYPE, STORE_FN)                        \
+void HELPER(NAME)(void *vs, void *v0, target_ulong base,               \
+                  target_ulong index, CPURISCVState *env,              \
+                  uint32_t desc)                                        \
+{                                                                       \
+    uint32_t vm = vext_vm(desc);                                        \
+    vext_vsshfte(vs, v0, base, index, env, desc, vm, STORE_FN,        \
+                 ctzl(sizeof(ETYPE)), GETPC());                         \
+}
+
+GEN_VEXT_VSSHFT(vsshfte8_v,  int8_t,  ste_b_tlb)
+GEN_VEXT_VSSHFT(vsshfte16_v, int16_t, ste_h_tlb)
+GEN_VEXT_VSSHFT(vsshfte32_v, int32_t, ste_w_tlb)
+GEN_VEXT_VSSHFT(vsshfte64_v, int64_t, ste_d_tlb)
+
+/*
+void do_vmspr_vx(void *vd, void *v0, target_long s1, void *vs2,
+                       CPURISCVState *env, uint32_t desc, uint32_t esz) {
+    uint32_t i;
+    int64_t *vd_array = (int64_t *)vd;
+    int64_t *vs2_array = (int64_t *)vs2;
+    int64_t rs1_val = (int64_t)s1;
+
+    VSTART_CHECK_EARLY_EXIT(env);
+
+    for (i = 0; i < env->vl; i++) {
+        int64_t vs2_val = vs2_array[i];
+
+        if ((vs2_val >> 63) > (rs1_val >> 63) ||
+            ((vs2_val >> 63) == (rs1_val >> 63) &&
+             (vs2_val & 0x7FFFFFFFFFFFFFFF) > (rs1_val & 0x7FFFFFFFFFFFFFFF))) {
+            vd_array[i] = 1;
+        } else {
+            vd_array[i] = 0;
+        }
+    }
+
+    env->vstart = 0;
+}
+
+GEN_VEXT_VMSPR_VX(vmspr_vx, 8)
+*/
+/*
+void do_vmspr_vx(void *vd, void *v0, target_long s1, void *vs2,
+                 CPURISCVState *env, uint32_t desc, uint32_t esz) {
+    uint32_t i;
+    int32_t *vd_array = (int32_t *)vd;
+    int32_t *vs2_array = (int32_t *)vs2;
+    int32_t rs1_val = (int32_t)s1;
+
+    VSTART_CHECK_EARLY_EXIT(env);
+
+    for (i = 0; i < env->vl; i++) {
+        int32_t vs2_val = vs2_array[i];
+
+        if ((vs2_val >> 31) > (rs1_val >> 31) ||
+            ((vs2_val >> 31) == (rs1_val >> 31) &&
+             (vs2_val & 0x7FFFFFFF) < (rs1_val & 0x7FFFFFFF))) {
+            vd_array[i] = 1;
+        } else {
+            vd_array[i] = 0;
+        }
+    }
+
+    env->vstart = 0;
+}
+
+GEN_VEXT_VMSPR_VX(vmspr_vx, 4)
+*/
+void do_vmspr_vx(void *vd, void *v0, target_long s1, void *vs2,
+                      CPURISCVState *env, uint32_t desc, uint32_t esz) {
+    uint32_t i;
+    int8_t *vd_array = (int8_t *)vd;
+    int8_t *vs2_array = (int8_t *)vs2;
+    int8_t rs1_val = (int8_t)s1;
+
+    VSTART_CHECK_EARLY_EXIT(env, env->vl);
+
+    for (i = 0; i < env->vl; i++) {
+        int8_t vs2_val = vs2_array[i];
+
+        if ((vs2_val >> 7) > (rs1_val >> 7) ||
+            ((vs2_val >> 7) == (rs1_val >> 7) &&
+             (vs2_val & 0x7F) < (rs1_val & 0x7F))) {
+            vd_array[i] = 1;
+        } else {
+            vd_array[i] = 0;
+        }
+    }
+
+    env->vstart = 0;
+}
+
+GEN_VEXT_VMSPR_VX(vmspr_vx, 1)
+
+/*
+void do_vpidldeb_vx(void *vd, void *v0, target_long s1, void *vs2,
+                   CPURISCVState *env, uint32_t desc, uint32_t esz) {
+    uint64_t *vs2_array = (uint64_t *)vs2;
+    int64_t actuator_index = (int64_t)s1;
+    uint32_t vl = env->vl;
+
+    VSTART_CHECK_EARLY_EXIT(env);
+
+    if (!vd) {
+        printf("Error: vd is NULL\n");
+        return;
+    }
+
+    printf("Debug: Received s1 = %ld\n", s1);
+    printf("Debug: actuator_index = %ld\n", actuator_index);
+    printf("Debug: VL = %u, esz = %u\n", vl, esz);
+
+    printf("Debug: vs2_array contents: ");
+    for (uint32_t i = 0; i < vl; i++) {
+        printf("%lu ", vs2_array[i]);
+    }
+    printf("\n");
+
+    uint64_t **vreg = (uint64_t **)malloc(vl * sizeof(uint64_t *));
+    if (!vreg) {
+        printf("Error: Memory allocation failed for vreg\n");
+        return;
+    }
+
+    for (uint32_t i = 0; i < vl; i++) {
+        vreg[i] = (uint64_t *)((uint8_t *)vd + (i * 16));
+        printf("Debug: v%d at %p\n", i + 1, vreg[i]);
+    }
+
+    if (s1 >= vl) {
+        printf("Error: s1 (%ld) exceeds vector register bounds (%u)\n", s1, vl);
+        free(vreg);
+        return;
+    }
+
+    for (uint32_t i = 0; i < vl; i++) {
+        printf("Debug: Before Storing - v%d[%ld] = %lu\n", i + 1, s1, vreg[i][s1]);
+        vreg[i][s1] = vs2_array[i];
+        printf("Debug: After Storing - v%d[%ld] = %lu\n", i + 1, s1, vreg[i][s1]);
+    }
+
+    free(vreg);
+    env->vstart = 0;
+}
+
+GEN_VEXT_VPIDLDEB_VX(vpidldeb_vx, 8)
+*/
+
+void do_vpidldeb_vx(void *vd, void *v0, target_long s1, void *vs2,
+                   CPURISCVState *env, uint32_t desc, uint32_t esz) {
+    uint8_t *vs2_array = (uint8_t *)vs2;
+    //int64_t actuator_index = (int64_t)s1;
+    uint32_t vl = env->vl;
+
+    VSTART_CHECK_EARLY_EXIT(env, env->vl);
+
+    if (!vd) {
+        //printf("Error: vd is NULL\n");
+        return;
+    }
+
+    //printf("Debug: Received s1 = %ld\n", s1);
+    //printf("Debug: actuator_index = %ld\n", actuator_index);
+    //printf("Debug: VL = %u, esz = %u\n", vl, esz);
+
+    //printf("Debug: vs2_array contents: ");
+    //for (uint32_t i = 0; i < vl; i++) {
+    //    printf("%u ", vs2_array[i]);
+    //}
+    //printf("\n");
+
+    uint8_t **vreg = (uint8_t **)malloc(vl * sizeof(uint8_t *));
+    if (!vreg) {
+        //printf("Error: Memory allocation failed for vreg\n");
+        return;
+    }
+
+    for (uint32_t i = 0; i < vl; i++) {
+        vreg[i] = (uint8_t *)vd + (i * 16);
+        //printf("Debug: v%d at %p\n", i + 1, vreg[i]);
+    }
+
+    if (s1 >= vl) {
+        //printf("Error: s1 (%ld) exceeds vector register bounds (%u)\n", s1, vl);
+        free(vreg);
+        return;
+    }
+
+    for (uint32_t i = 0; i < vl; i++) {
+        //printf("Debug: Before Storing - v%d[%ld] = %u\n", i + 1, s1, vreg[i][s1]);
+        vreg[i][s1] = vs2_array[i];
+        //printf("Debug: After Storing - v%d[%ld] = %u\n", i + 1, s1, vreg[i][s1]);
+    }
+
+    free(vreg);
+    env->vstart = 0;
+}
+
+GEN_VEXT_VPIDLDEB_VX(vpidldeb_vx, 1)
+
+/*
+void do_vpidsteb_vx(void *vd, void *v0, target_long s1, void *vs2,
+                   CPURISCVState *env, uint32_t desc, uint32_t esz) {
+    uint64_t *vd_array = (uint64_t *)vd;
+    int64_t actuator_index = (int64_t)s1;
+    uint32_t vl = env->vl;
+    
+    VSTART_CHECK_EARLY_EXIT(env);
+
+    if (!vs2) {
+        printf("Error: vs2 is NULL\n");
+        return;
+    }
+
+    printf("Debug: Received s1 = %ld\n", s1);
+    printf("Debug: actuator_index = %ld\n", actuator_index);
+    printf("Debug: VL = %u, esz = %u\n", vl, esz);
+
+    uint64_t **vreg = (uint64_t **)malloc(vl * sizeof(uint64_t *));
+    if (!vreg) {
+        printf("Error: Memory allocation failed for vreg\n");
+        return;
+    }
+
+    for (uint32_t i = 0; i < vl; i++) {
+        vreg[i] = (uint64_t *)((uint8_t *)vs2 + (i * 16)); 
+        printf("Debug: v%d at %p\n", i + 1, vreg[i]);
+    }
+
+    if (s1 >= vl) {
+        printf("Error: s1 (%ld) exceeds vector register bounds (%u)\n", s1, vl);
+        free(vreg);
+        return;
+    }
+
+    printf("Debug: Storing values from vector registers into memory\n");
+
+    for (uint32_t i = 0; i < vl; i++) {
+        printf("Debug: Before Loading - vd[%d] = %lu\n", i, vd_array[i]);
+        vd_array[i] = vreg[i][s1];  // 올바른 index의 값 저장
+        printf("Debug: After Loading - vd[%d] = %lu\n", i, vd_array[i]);
+    }
+
+    free(vreg);
+    env->vstart = 0;
+}
+
+GEN_VEXT_VPIDSTEB_VX(vpidsteb_vx, 8)
+*/
+
+void do_vpidsteb_vx(void *vd, void *v0, target_long s1, void *vs2,
+                   CPURISCVState *env, uint32_t desc, uint32_t esz) {
+    uint8_t *vd_array = (uint8_t *)vd;
+    //int64_t actuator_index = (int64_t)s1;
+    uint32_t vl = env->vl;
+
+    VSTART_CHECK_EARLY_EXIT(env, env->vl);
+
+    if (!vs2) {
+        //printf("Error: vs2 is NULL\n");
+        return;
+    }
+
+    //printf("Debug: Received s1 = %ld\n", s1);
+    //printf("Debug: actuator_index = %ld\n", actuator_index);
+    //printf("Debug: VL = %u, esz = %u\n", vl, esz);
+
+    uint8_t **vreg = (uint8_t **)malloc(vl * sizeof(uint8_t *));
+    if (!vreg) {
+        //printf("Error: Memory allocation failed for vreg\n");
+        return;
+    }
+
+    for (uint32_t i = 0; i < vl; i++) {
+        vreg[i] = (uint8_t *)vs2 + (i * 16);
+        //printf("Debug: v%d at %p\n", i + 1, vreg[i]);
+    }
+
+    if (s1 >= vl) {
+        //printf("Error: s1 (%ld) exceeds vector register bounds (%u)\n", s1, vl);
+        free(vreg);
+        return;
+    }
+
+    //printf("Debug: Storing values from vector registers into memory\n");
+
+    for (uint32_t i = 0; i < vl; i++) {
+        //printf("Debug: Before Loading - vd[%d] = %u\n", i, vd_array[i]);
+        vd_array[i] = vreg[i][s1];
+        //printf("Debug: After Loading - vd[%d] = %u\n", i, vd_array[i]);
+    }
+
+    free(vreg);
+    env->vstart = 0;
+}
+
+GEN_VEXT_VPIDSTEB_VX(vpidsteb_vx, 1)
+
+/*
+void do_vfrope_fvx(void *vd, void *v0, target_ulong s1, void *vs2,
+                   CPURISCVState *env, uint32_t desc, uint32_t esz) {
+    double *vd_array = (double *)vd;
+    double *vs2_array = (double *)vs2;
+    uint64_t position = s1;
+    uint32_t vl = env->vl;
+
+    VSTART_CHECK_EARLY_EXIT(env);
+
+    if (!vd || !vs2) {
+        printf("Error: VD or VS2 is NULL\n");
+        return;
+    }
+
+    for (uint32_t i = 1; i <= vl / 2; i++) {
+        double theta = 2.0 * M_PI * i / 4096.0;
+        double cos_theta = cos(position * theta);
+        double sin_theta = sin(position * theta);
+
+        double x1 = vs2_array[i * 2 - 2];
+        double x2 = vs2_array[i * 2 - 1];
+
+        double x1_prime = (x1 * cos_theta - x2 * sin_theta);
+        double x2_prime = (x1 * sin_theta + x2 * cos_theta);
+
+        vd_array[i * 2 - 2] = x1_prime;
+        vd_array[i * 2 - 1] = x2_prime;
+
+        // printf("Theta: %f, x1=%f, x2=%f, x1'=%f, x2'=%f\n", theta, x1, x2, x1_prime, x2_prime);
+    }
+
+    env->vstart = 0;
+}
+
+GEN_VEXT_VFROPE_FVX(vfrope_fvx, 8)
+*/
+
+void do_vfrope_fvx(void *vd, void *v0, target_ulong s1, void *vs2, CPURISCVState *env, uint32_t desc, uint32_t esz) {
+    float *vd_array = (float *)vd;
+    float *vs2_array = (float *)vs2;
+    uint64_t position = s1;
+    uint32_t vl = env->vl;
+
+    VSTART_CHECK_EARLY_EXIT(env, env->vl);
+    printf("Debug : VL = %u, esz =%u\n", vl,esz);
+    if (!vd || !vs2) {
+        printf("Error: VD or VS2 is NULL\n");
+        return;
+    }
+    for (uint32_t i = 1; i <= vl / 2; i++) {
+        double theta = 2.0 * M_PI * i / 4096.0;
+        double cos_theta = cos(position * theta);
+        double sin_theta = sin(position * theta);
+
+        float x1 = vs2_array[i * 2 - 2];
+        float x2 = vs2_array[i * 2 - 1];
+
+        float x1_prime = (x1 * cos_theta - x2 * sin_theta);
+        float x2_prime = (x1 * sin_theta + x2 * cos_theta);
+
+        vd_array[i * 2 - 2] = x1_prime;
+        vd_array[i * 2 - 1] = x2_prime;
+    }
+
+    env->vstart = 0;
+}
+
+GEN_VEXT_VFROPE_FVX(vfrope_fvx, 4)
+
+void do_vfpid32b_vf(void *vd, void *v0, target_long s1, void *vs2,CPURISCVState *env, uint32_t desc, uint32_t esz) {
+   uint64_t dt_addr=env->fpr[10]; //fa0 of address
+   double dt=*(double *)&dt_addr;
+   // memcpy(&dt, &dt_addr, sizeof(float));
+   VSTART_CHECK_EARLY_EXIT(env, env->vl);
+   float *tmp_array=(float *)vs2;
+   //float *vd_array=(float *)vd;
+/*   printf("vs2 : %p\n",tmp_array);
+   printf("vd : %p\n", vd_array);
+   for(int i=0;i<8;i++){
+           printf("%p %f\n", &tmp_array[i],tmp_array[i]);
+   }
+   for(int i=0;i<8;i++){
+           printf("%p %f\n", &vd_array[i],vd_array[i]);
+   }
+*/
+   while(tmp_array<=(float *)vd){
+           //printf("%p\n",tmp_array);
+           float curr_err= tmp_array[0]-tmp_array[1];
+           float P = tmp_array[2]*curr_err;
+           float I = curr_err*dt+tmp_array[5];
+           tmp_array[5]=I;
+           I=tmp_array[3]*I;
+           float D = curr_err - tmp_array[6];
+           tmp_array[6]=curr_err;
+           D = D/dt;
+           D = tmp_array[4]*D;
+           tmp_array[7]=P+I+D;
+           tmp_array+=8;
+   }
+   env->vstart = 0;
+}
+GEN_VEXT_VFPID32B_VF(vfpid32b_vf, 8)
+
+void do_vfpid64b_vf(void *vd, void *v0, target_long s1, void *vs2,
+                   CPURISCVState *env, uint32_t desc, uint32_t esz) {
+   uint64_t dt_addr=env->fpr[10]; //fa0 of address
+   double dt=*(double *)&dt_addr;
+   // memcpy(&dt, &dt_addr, sizeof(double));
+   VSTART_CHECK_EARLY_EXIT(env, env->vl);
+   //double *vd_array=(double *)vd;
+   double *tmp_array=(double *)vs2;
+/*   for(int i=0;i<8;i++){
+           printf("%p %f\n", &tmp_array[i],tmp_array[i]);
+   }
+   for(int i=0;i<8;i++){
+           printf("%p %f\n", &vd_array[i],vd_array[i]);
+   }
+*/
+   while(tmp_array<=(double *)vd){
+           //printf("%p\n",tmp_array);
+           double curr_err= tmp_array[0]-tmp_array[1];
+           double P = tmp_array[2]*curr_err;
+           double I = curr_err*dt+tmp_array[5];
+           tmp_array[5]=I;
+           I=tmp_array[3]*I;
+           double D = curr_err - tmp_array[6];
+           tmp_array[6]=curr_err;
+           D = D/dt;
+           D = tmp_array[4]*D;
+           tmp_array[7]=P+I+D;
+           tmp_array+=8;
+   }
+   env->vstart = 0;
+}
+GEN_VEXT_VFPID64B_VF(vfpid64b_vf, 8)
+
+void do_vlc8to32_v(void *vd, void *v0, target_ulong rs1, void *desc,
+                       CPURISCVState *env, uint32_t vm)
+{
+    uint32_t vl = env->vl;
+    for (uint32_t i = 0; i < vl; i++) {
+        //printf("rs1 : %lu\n",rs1+i);  
+        uint8_t value = cpu_ldub_data(env, rs1 + i);
+        ((uint32_t *)vd)[i] = (uint32_t)value;
+    }
+    env->vstart = 0;
+}
+GEN_VEXT_VLC8TO32_V(vlc8to32_v, uint32_t, ldu_b_tlb)
+
+
+void do_vstrcmp_vv(void *vd, void *v0, void *vs1, void *vs2,
+                   CPURISCVState *env, uint32_t desc, uint32_t esz) {
+
+    VSTART_CHECK_EARLY_EXIT(env, env->vl);
+    uint32_t vl = env->vl;
+    uint8_t *v1 = (uint8_t *)vs1;
+    uint8_t *v2 = (uint8_t *)vs2;
+    int8_t *vdest = (int8_t *)vd;
+
+    int result = 1;
+
+    for (uint32_t i = 0; i < vl; i++) {
+        if (v1[i] == 0 && v2[i] == 0) {
+            result = 0;
+            break;
+        }
+        if (v1[i] == 0 || v2[i] == 0 || v1[i] != v2[i]) {
+            result = -1;
+            break;
+        }
+    }
+
+    vdest[0] = (int8_t)result;
+
+    env->vstart = 0;
+}
+
+GEN_VEXT_VSTRCMP_VV(vstrcmp_vv, 8)
+

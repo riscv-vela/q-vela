@@ -235,3 +235,88 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1,    \
 #define WOP_UUU_W uint64_t, uint32_t, uint32_t, uint64_t, uint64_t
 
 #endif /* TARGET_RISCV_VECTOR_INTERNALS_H */
+
+void do_vmspr_vx(void *vd, void *v0, target_long s1, void *vs2,
+                 CPURISCVState *env, uint32_t desc, uint32_t esz);
+
+#define GEN_VEXT_VMSPR_VX(NAME, ESZ)                    \
+void HELPER(NAME)(void *vd, void *v0, target_ulong s1,  \
+                  void *vs2, CPURISCVState *env,        \
+                  uint32_t desc)                        \
+{                                                       \
+    do_##NAME(vd, v0, s1, vs2, env, desc, ESZ);        \
+}
+
+void do_vpidldeb_vx(void *vd, void *v0, target_long s1, void *vs2,
+                    CPURISCVState *env, uint32_t desc, uint32_t esz);
+
+#define GEN_VEXT_VPIDLDEB_VX(NAME, ESZ)                    \
+void HELPER(NAME)(void *vd, void *v0, target_ulong s1,  \
+                  void *vs2, CPURISCVState *env,        \
+                  uint32_t desc)                        \
+{                                                       \
+    do_##NAME(vd, v0, s1, vs2, env, desc, ESZ);        \
+}
+
+void do_vpidsteb_vx(void *vd, void *v0, target_long s1, void *vs2,
+                    CPURISCVState *env, uint32_t desc, uint32_t esz);
+
+#define GEN_VEXT_VPIDSTEB_VX(NAME, ESZ)                    \
+void HELPER(NAME)(void *vd, void *v0, target_ulong s1,  \
+                  void *vs2, CPURISCVState *env,        \
+                  uint32_t desc)                        \
+{                                                       \
+    do_##NAME(vd, v0, s1, vs2, env, desc, ESZ);        \
+}
+
+void do_vfrope_fvx(void *vd, void *v0, target_ulong s1, void *vs2,
+                 CPURISCVState *env, uint32_t desc, uint32_t esz);
+
+#define GEN_VEXT_VFROPE_FVX(NAME, ESZ)                    \
+void HELPER(NAME)(void *vd, void *v0, target_ulong s1,  \
+                  void *vs2, CPURISCVState *env,        \
+                  uint32_t desc)                        \
+{                                                       \
+    do_##NAME(vd, v0, s1, vs2, env, desc, ESZ);        \
+}
+
+void do_vfpid32b_vf(void *vd, void *v0, target_long s1, void *vs2, CPURISCVState *env, uint32_t desc, uint32_t esz);
+
+#define GEN_VEXT_VFPID32B_VF(NAME, ESZ)                    \
+void HELPER(NAME)(void *vd, void *v0, target_ulong s1,  \
+                  void *vs2, CPURISCVState *env,        \
+                  uint32_t desc)                        \
+{                                                       \
+    do_##NAME(vd, v0, s1, vs2, env, desc, ESZ);        \
+}
+
+
+void do_vfpid64b_vf(void *vd, void *v0, target_long s1, void *vs2,CPURISCVState *env, uint32_t desc, uint32_t esz);
+
+#define GEN_VEXT_VFPID64B_VF(NAME, ESZ)                    \
+void HELPER(NAME)(void *vd, void *v0, target_ulong s1,  \
+                  void *vs2, CPURISCVState *env,        \
+                  uint32_t desc)                        \
+{                                                       \
+    do_##NAME(vd, v0, s1, vs2, env, desc, ESZ);        \
+}
+
+void do_vlc8to32_v(void *vd, void *v0, target_ulong rs1, void *desc, CPURISCVState *env, uint32_t vm);
+
+#define GEN_VEXT_VLC8TO32_V(NAME, ETYPE, LOAD_FN)                           \
+void HELPER(NAME)(void *vd, void *v0, target_ulong rs1, void *desc,        \
+                  CPURISCVState *env, uint32_t vm)                          \
+{                                                                           \
+    do_##NAME(vd, v0, rs1, desc, env, vm);                                 \
+}
+
+void do_vstrcmp_vv(void *vd, void *v0, void *vs1, void *vs2, CPURISCVState *env, uint32_t desc, uint32_t esz);
+
+#define GEN_VEXT_VSTRCMP_VV(NAME, ESZ)                    \
+void HELPER(NAME)(void *vd, void *v0, void *vs1,  \
+                  void *vs2, CPURISCVState *env,        \
+                  uint32_t desc)                        \
+{                                                       \
+    do_##NAME(vd, v0,vs1, vs2, env, desc, ESZ);        \
+}
+

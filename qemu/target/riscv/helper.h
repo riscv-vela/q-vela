@@ -1284,3 +1284,48 @@ DEF_HELPER_4(vgmul_vv, void, ptr, ptr, env, i32)
 DEF_HELPER_5(vsm4k_vi, void, ptr, ptr, i32, env, i32)
 DEF_HELPER_4(vsm4r_vv, void, ptr, ptr, env, i32)
 DEF_HELPER_4(vsm4r_vs, void, ptr, ptr, env, i32)
+
+DEF_HELPER_6(vlshfte8_v,  void, ptr, ptr, tl, tl, env, i32)
+DEF_HELPER_6(vlshfte16_v, void, ptr, ptr, tl, tl, env, i32)
+DEF_HELPER_6(vlshfte32_v, void, ptr, ptr, tl, tl, env, i32)
+DEF_HELPER_6(vlshfte64_v, void, ptr, ptr, tl, tl, env, i32)
+
+DEF_HELPER_6(vsshfte8_v,  void, ptr, ptr, tl, tl, env, i32)
+DEF_HELPER_6(vsshfte16_v, void, ptr, ptr, tl, tl, env, i32)
+DEF_HELPER_6(vsshfte32_v, void, ptr, ptr, tl, tl, env, i32)
+DEF_HELPER_6(vsshfte64_v, void, ptr, ptr, tl, tl, env, i32)
+
+DEF_HELPER_6(vmspr_vx, void, ptr, ptr, tl, ptr, env, i32)
+
+DEF_HELPER_6(vpidldeb_vx, void, ptr, ptr, tl, ptr, env, i32)
+DEF_HELPER_6(vpidsteb_vx, void, ptr, ptr, tl, ptr, env, i32)
+
+DEF_HELPER_6(vfrope_fvx, void, ptr, ptr, tl, ptr, env, i32)
+DEF_HELPER_6(vfpid32b_vf, void, ptr, ptr, tl, ptr, env, i32)
+DEF_HELPER_6(vfpid64b_vf, void, ptr, ptr, tl, ptr, env, i32)
+
+DEF_HELPER_6(vlc8to32_v, void, ptr, ptr, tl, ptr, env, i32)
+DEF_HELPER_6(vstrcmp_vv, void, ptr, ptr, ptr, ptr, env, i32)
+
+DEF_HELPER_3(loop_ws_config_bounds, void, env, tl, tl)
+DEF_HELPER_3(loop_ws_addrs_ab,      void, env, tl, tl)
+DEF_HELPER_3(loop_ws_addrs_dc,      void, env, tl, tl)
+DEF_HELPER_3(loop_ws_strides_ab,    void, env, tl, tl)
+DEF_HELPER_3(loop_ws_strides_dc,    void, env, tl, tl)
+DEF_HELPER_3(loop_ws, void, env, tl, tl)
+
+DEF_HELPER_3(k_gemv_loop_ws_config_bounds, void, env, tl, tl)
+DEF_HELPER_3(k_gemv_loop_ws_addrs_ab,      void, env, tl, tl)
+DEF_HELPER_3(k_gemv_loop_ws_addrs_dc,      void, env, tl, tl)
+DEF_HELPER_3(k_gemv_loop_ws_strides_ab,    void, env, tl, tl)
+DEF_HELPER_3(k_gemv_loop_ws_strides_dc,    void, env, tl, tl)
+DEF_HELPER_3(k_gemv_loop_ws_flags,         void, env, tl, tl)
+
+DEF_HELPER_3(gemmini_config, void, env, tl, tl)
+DEF_HELPER_4(mvin, void, env, tl, tl,int)
+DEF_HELPER_3(mvout, void, env, tl, tl)
+DEF_HELPER_3(compute, void, tl, tl, int)
+DEF_HELPER_2(preload, void, tl, tl)
+/*DEF_HELPER_3(gemmini_flush, void, env, tl, tl)
+DEF_HELPER_3(gemmini_fence, void, env, tl, tl)
+*/

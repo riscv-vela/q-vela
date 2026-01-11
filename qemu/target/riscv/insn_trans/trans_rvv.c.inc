@@ -3779,3 +3779,214 @@ GEN_INT_EXT_TRANS(vzext_vf8, 3, 2)
 GEN_INT_EXT_TRANS(vsext_vf2, 1, 3)
 GEN_INT_EXT_TRANS(vsext_vf4, 2, 4)
 GEN_INT_EXT_TRANS(vsext_vf8, 3, 5)
+
+static bool ld_shfte_op(DisasContext *s, arg_rnfvm *a, uint8_t eew)
+{
+    uint32_t data = 0;
+    gen_helper_ldst_stride *fn;
+    static gen_helper_ldst_stride * const fns[4] = {
+        gen_helper_vlshfte8_v, gen_helper_vlshfte16_v,
+        gen_helper_vlshfte32_v, gen_helper_vlshfte64_v
+    };
+
+    fn = fns[eew];
+    if (fn == NULL) {
+        return false;
+    }
+
+    uint8_t emul = vext_get_emul(s, eew);
+    data = FIELD_DP32(data, VDATA, VM, a->vm);
+    data = FIELD_DP32(data, VDATA, LMUL, emul);
+    data = FIELD_DP32(data, VDATA, NF, a->nf);
+    data = FIELD_DP32(data, VDATA, VTA, s->vta);
+    data = FIELD_DP32(data, VDATA, VMA, s->vma);
+
+    return ldst_stride_trans(a->rd, a->rs1, a->rs2, data, fn, s);
+}
+
+static bool ld_shfte_check(DisasContext *s, arg_rnfvm* a, uint8_t eew)
+{
+    return require_rvv(s) &&
+           vext_check_isa_ill(s) &&
+           vext_check_load(s, a->rd, a->nf, a->vm, eew);
+}
+
+GEN_VEXT_TRANS(vlshfte8_v,  MO_8,  rnfvm, ld_shfte_op, ld_shfte_check)
+GEN_VEXT_TRANS(vlshfte16_v, MO_16, rnfvm, ld_shfte_op, ld_shfte_check)
+GEN_VEXT_TRANS(vlshfte32_v, MO_32, rnfvm, ld_shfte_op, ld_shfte_check)
+GEN_VEXT_TRANS(vlshfte64_v, MO_64, rnfvm, ld_shfte_op, ld_shfte_check)
+
+static bool st_shfte_op(DisasContext *s, arg_rnfvm *a, uint8_t eew)
+{
+    uint32_t data = 0;
+    gen_helper_ldst_stride *fn;
+    static gen_helper_ldst_stride * const fns[4] = {
+        gen_helper_vsshfte8_v, gen_helper_vsshfte16_v,
+        gen_helper_vsshfte32_v, gen_helper_vsshfte64_v
+    };
+
+    fn = fns[eew];
+    if (fn == NULL) {
+        return false;
+    }
+
+    uint8_t emul = vext_get_emul(s, eew);
+    data = FIELD_DP32(data, VDATA, VM, a->vm);
+    data = FIELD_DP32(data, VDATA, LMUL, emul);
+    data = FIELD_DP32(data, VDATA, NF, a->nf);
+    data = FIELD_DP32(data, VDATA, VTA, s->vta);
+    data = FIELD_DP32(data, VDATA, VMA, s->vma);
+
+    return ldst_stride_trans(a->rd, a->rs1, a->rs2, data, fn, s);
+}
+
+static bool st_shfte_check(DisasContext *s, arg_rnfvm* a, uint8_t eew)
+{
+    return require_rvv(s) &&
+           vext_check_isa_ill(s) &&
+           vext_check_store(s, a->rd, a->nf, eew);
+}
+
+GEN_VEXT_TRANS(vsshfte8_v,  MO_8,  rnfvm, st_shfte_op, st_shfte_check)
+GEN_VEXT_TRANS(vsshfte16_v, MO_16, rnfvm, st_shfte_op, st_shfte_check)
+GEN_VEXT_TRANS(vsshfte32_v, MO_32, rnfvm, st_shfte_op, st_shfte_check)
+GEN_VEXT_TRANS(vsshfte64_v, MO_64, rnfvm, st_shfte_op, st_shfte_check)
+
+static bool trans_vmspr_vx(DisasContext *s, arg_rmrr *a) {
+    if (!opivx_check(s, a)) {
+        return false;
+    }
+    return opivx_trans(a->rd, a->rs1, a->rs2, a->vm, gen_helper_vmspr_vx, s);
+}
+
+static bool trans_vpidldeb_vx(DisasContext *s, arg_rmrr *a) {
+    if (!opivx_check(s, a)) {
+        return false;
+    }
+    return opivx_trans(a->rd, a->rs1, a->rs2, a->vm, gen_helper_vpidldeb_vx, s);
+}
+
+static bool trans_vpidsteb_vx(DisasContext *s, arg_rmrr *a) {
+    if (!opivx_check(s, a)) {
+        return false;
+    }
+    return opivx_trans(a->rd, a->rs1, a->rs2, a->vm, gen_helper_vpidsteb_vx, s);
+}
+
+static bool trans_vfrope_fvx(DisasContext *s, arg_rmrr *a) {
+    if (!opivx_check(s, a)) {
+        return false;
+    }
+    return opivx_trans(a->rd, a->rs1, a->rs2, a->vm, gen_helper_vfrope_fvx, s);
+}
+
+static bool trans_vfpid32b_vf(DisasContext *s, arg_rmrr *a) {
+    if (!opivx_check(s, a)) {
+        return false;
+    }
+    return opivx_trans(a->rd, a->rs1, a->rs2, a->vm, gen_helper_vfpid32b_vf, s);
+}
+
+static bool trans_vfpid64b_vf(DisasContext *s, arg_rmrr *a) {
+    if (!opivx_check(s, a)) {
+        return false;
+    }
+    return opivx_trans(a->rd, a->rs1, a->rs2, a->vm, gen_helper_vfpid64b_vf, s);
+}
+
+static bool opivx_check_rnfvm(DisasContext *s, arg_rnfvm *a)
+{
+    if (a->rd >= 32 || a->rs1 >= 32) {
+        return false;
+    }
+
+    if (!has_ext(s,RVV)) {
+        return false;
+    }
+
+    return true;
+}
+
+static bool trans_vlc8to32_v(DisasContext *s, arg_rnfvm *a){
+    if (!opivx_check_rnfvm(s, a)) {
+        return false;
+    }
+    return opivx_trans(a->rd, a->rs1, 0, a->vm, gen_helper_vlc8to32_v, s);
+}
+
+static bool trans_vstrcmp_vv(DisasContext *s, arg_rmrr *a) {
+    if (!opivv_check(s, a)) {
+        return false;
+    }
+    return opivv_trans(a->rd, a->rs1, a->rs2, a->vm, gen_helper_vstrcmp_vv, s);
+}
+
+//Rocc instruction test
+/*static void gen_k_gemv_loop_ws_config_bounds(TCGv dest, TCGv src1, TCGv src2) {
+    gen_helper_k_gemv_loop_ws_config_bounds(tcg_env, src1, src2);
+}
+
+static bool trans_k_gemv_loop_ws_config_bounds(DisasContext *ctx, arg_r *a) {
+    return gen_logic(ctx, a, gen_k_gemv_loop_ws_config_bounds);
+}
+
+// ------------------------------------------------------------
+
+static void gen_k_gemv_loop_ws_addrs_ab(TCGv dest, TCGv src1, TCGv src2) {
+    gen_helper_k_gemv_loop_ws_addrs_ab(tcg_env, src1, src2);
+}
+
+static bool trans_k_gemv_loop_ws_addrs_ab(DisasContext *ctx, arg_r *a) {
+    return gen_logic(ctx, a, gen_k_gemv_loop_ws_addrs_ab);
+}
+
+// ------------------------------------------------------------
+
+static void gen_k_gemv_loop_ws_addrs_dc(TCGv dest, TCGv src1, TCGv src2) {
+    gen_helper_k_gemv_loop_ws_addrs_dc(tcg_env, src1, src2);
+}
+
+static bool trans_k_gemv_loop_ws_addrs_dc(DisasContext *ctx, arg_r *a) {
+    return gen_logic(ctx, a, gen_k_gemv_loop_ws_addrs_dc);
+}
+
+// ------------------------------------------------------------
+
+static void gen_k_gemv_loop_ws_strides_ab(TCGv dest, TCGv src1, TCGv src2) {
+    gen_helper_k_gemv_loop_ws_strides_ab(tcg_env, src1, src2);
+}
+
+static bool trans_k_gemv_loop_ws_strides_ab(DisasContext *ctx, arg_r *a) {
+    return gen_logic(ctx, a, gen_k_gemv_loop_ws_strides_ab);
+}
+
+// ------------------------------------------------------------
+
+static void gen_k_gemv_loop_ws_strides_dc(TCGv dest, TCGv src1, TCGv src2) {
+    gen_helper_k_gemv_loop_ws_strides_dc(tcg_env, src1, src2);
+}
+
+static bool trans_k_gemv_loop_ws_strides_dc(DisasContext *ctx, arg_r *a) {
+    return gen_logic(ctx, a, gen_k_gemv_loop_ws_strides_dc);
+}
+
+// ------------------------------------------------------------
+
+static void gen_k_gemv_loop_ws_flags(TCGv dest, TCGv src1, TCGv src2) {
+    gen_helper_k_gemv_loop_ws_flags(tcg_env, src1, src2);
+}
+
+static bool trans_k_gemv_loop_ws_flags(DisasContext *ctx, arg_r *a) {
+    return gen_logic(ctx, a, gen_k_gemv_loop_ws_flags);
+}
+//rocc 명령어
+//gemmini_config
+static void gen_gemmini_config(TCGv dest, TCGv src1, TCGv src2) {
+    gen_helper_gemmini_config(tcg_env, src1, src2);
+}
+
+static bool trans_gemmini_config(DisasContext *ctx, arg_r *a) {
+    return gen_logic(ctx, a, gen_gemmini_config);
+}
+*/
+
