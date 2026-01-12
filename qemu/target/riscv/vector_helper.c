@@ -6177,71 +6177,67 @@ void do_vpidsteb_vx(void *vd, void *v0, target_long s1, void *vs2,
 
 GEN_VEXT_VPIDSTEB_VX(vpidsteb_vx, 1)
 
-/*
-void do_vfrope_fvx(void *vd, void *v0, target_ulong s1, void *vs2,
-                   CPURISCVState *env, uint32_t desc, uint32_t esz) {
-    double *vd_array = (double *)vd;
-    double *vs2_array = (double *)vs2;
-    uint64_t position = s1;
-    uint32_t vl = env->vl;
-
-    VSTART_CHECK_EARLY_EXIT(env);
-
-    if (!vd || !vs2) {
-        printf("Error: VD or VS2 is NULL\n");
-        return;
-    }
-
-    for (uint32_t i = 1; i <= vl / 2; i++) {
-        double theta = 2.0 * M_PI * i / 4096.0;
-        double cos_theta = cos(position * theta);
-        double sin_theta = sin(position * theta);
-
-        double x1 = vs2_array[i * 2 - 2];
-        double x2 = vs2_array[i * 2 - 1];
-
-        double x1_prime = (x1 * cos_theta - x2 * sin_theta);
-        double x2_prime = (x1 * sin_theta + x2 * cos_theta);
-
-        vd_array[i * 2 - 2] = x1_prime;
-        vd_array[i * 2 - 1] = x2_prime;
-
-        // printf("Theta: %f, x1=%f, x2=%f, x1'=%f, x2'=%f\n", theta, x1, x2, x1_prime, x2_prime);
-    }
-
-    env->vstart = 0;
-}
-
-GEN_VEXT_VFROPE_FVX(vfrope_fvx, 8)
-*/
-
+/* Custom Instruction for RoPE (vfrope.fvx) */
 void do_vfrope_fvx(void *vd, void *v0, target_ulong s1, void *vs2, CPURISCVState *env, uint32_t desc, uint32_t esz) {
-    float *vd_array = (float *)vd;
-    float *vs2_array = (float *)vs2;
-    uint64_t position = s1;
-    uint32_t vl = env->vl;
+    float *vd_array = (float *)vd;      // Output vector y
+    float *vs2_array = (float *)vs2;    // Input vector x
+    uint32_t vl = env->vl;              // Number of elements in Vector
 
-    VSTART_CHECK_EARLY_EXIT(env, env->vl);
-    printf("Debug : VL = %u, esz =%u\n", vl,esz);
+    uint16_t idx = (s1 >> 16) & 0xFFFF; // upper 16 bits of X3 (idx)
+    uint16_t m = s1 & 0xFFFF;           // lower 16 bits of X3 (position)
+    uint32_t q = m / 64;                // addr for Coarse LUT
+    uint32_t r = m % 64;                // addr for Fine LUT
+    float_status status = {0};          // Floating-point status for operations
+
+    VSTART_CHECK_EARLY_EXIT(env, vl);
     if (!vd || !vs2) {
         printf("Error: VD or VS2 is NULL\n");
         return;
     }
-    for (uint32_t i = 1; i <= vl / 2; i++) {
-        double theta = 2.0 * M_PI * i / 4096.0;
-        double cos_theta = cos(position * theta);
-        double sin_theta = sin(position * theta);
 
-        float x1 = vs2_array[i * 2 - 2];
-        float x2 = vs2_array[i * 2 - 1];
+    for (uint32_t rep = 1; rep <= vl / 2; rep++) {
+        /* Compute Index of Theta in the loop */
+        uint32_t i = (idx + (rep - 1) * 2) % 128 / 2;
 
-        float x1_prime = (x1 * cos_theta - x2 * sin_theta);
-        float x2_prime = (x1 * sin_theta + x2 * cos_theta);
+        /* Below is Implementation Considering Errors from Quantization of 2-Stage LUT */
+        /* View RISV_V_Custom_Instruction_Specification_v2.0 for Implementation Details */
+        double theta = pow(10000.0, (-2.0 * i / 128.0));
+        /* Maybe Attention Head Size 128 should be passed as a parameter? */
+        
+        double val_cos = cos(q * 64 * theta);
+        double val_sin = sin(q * 64 * theta);
 
-        vd_array[i * 2 - 2] = x1_prime;
-        vd_array[i * 2 - 1] = x2_prime;
+        float64 f64_cos, f64_sin;
+        memcpy(&f64_cos, &val_cos, sizeof(float64));
+        memcpy(&f64_sin, &val_sin, sizeof(float64));
+        float16 coarse_sin = float64_to_float16(f64_sin, true, &status);
+        float16 coarse_cos = float64_to_float16(f64_cos, true, &status);
+
+        int8_t fine_sin = (int8_t)round((sin(r * theta) * 127));
+        int8_t fine_cos = (int8_t)round((cos(r * theta) * 127));
+        float32 f_coarse_sin = float16_to_float32(coarse_sin, true, &status);
+        float32 f_coarse_cos = float16_to_float32(coarse_cos, true, &status);
+
+        float32 f32_fine_sin, f32_fine_cos;
+        float f_fine_sin = (float)fine_sin / 127.0;
+        float f_fine_cos = (float)fine_cos / 127.0;
+        memcpy(&f32_fine_sin, &f_fine_sin, sizeof(float32));
+        memcpy(&f32_fine_cos, &f_fine_cos, sizeof(float32));
+
+        float32 f32_cos = float32_sub(float32_mul(f_coarse_cos, f32_fine_cos, &status),float32_mul(f_coarse_sin, f32_fine_sin, &status),&status);
+        float32 f32_sin = float32_add(float32_mul(f_coarse_sin, f32_fine_cos, &status),float32_mul(f_coarse_cos, f32_fine_sin, &status),&status);
+
+        float cos_theta, sin_theta;
+        memcpy(&cos_theta, &f32_cos, sizeof(float));
+        memcpy(&sin_theta, &f32_sin, sizeof(float));
+
+        /* Read From Truncated Input Vector X */
+        float x1 = vs2_array[rep * 2 - 2];
+        float x2 = vs2_array[rep * 2 - 1];
+        /* Write to Truncated Output Vector Y */
+        vd_array[rep * 2 - 2] = (x1 * cos_theta - x2 * sin_theta);
+        vd_array[rep * 2 - 1] = (x1 * sin_theta + x2 * cos_theta);
     }
-
     env->vstart = 0;
 }
 
