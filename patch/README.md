@@ -35,8 +35,12 @@ make -j $(nproc)
 
 ## How to build edk2
 - Run edk2_patch.sh
+```shell
+# ./patch/edk2_patch.sh
+```
 - After
 ```shell
+# in q-vela-ras directory
 export WORKSPACE=`pwd`
 export GCC5_RISCV64_PREFIX=riscv64-linux-gnu-
 export PACKAGES_PATH=$WORKSPACE/edk2
@@ -50,12 +54,20 @@ truncate -s 32M $WORKSPACE/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_VARS.f
 ```
 ## How to build opensbi
 - Run opensbi_patch.sh
+```shell
+# ./patch/opensbi_patch.sh
+```
 - After
 ```shell
+# in opensbi directory
 make CROSS_COMPILE=riscv64-linux-gnu- PLATFORM_RISCV_XLEN=64 PLATFORM=generic
 ```
 ## How to build linux kernel
 ```shell
+# ./patch/kernel_patch.sh
+```
+```shell
+# in kernel directory
 make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- mrproper
 make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- defconfig
 make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- menuconfig
