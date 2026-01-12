@@ -1,0 +1,48 @@
+#include <stdio.h>
+#include <stdint.h>
+
+int main() {
+	uint8_t data[16] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+	uint8_t result[8] = { 0 };
+	uint64_t index = 6;
+
+	printf("Initial index value: %lu\n", index);
+	printf("Initial data memory address: %p\n", (void*)data);
+	printf("Initial result memory address: %p\n", (void*)result);
+
+	printf("Before assembly execution:\n");
+	printf("Data: ");
+	
+	for (int i = 0; i < 16; i++) {
+		printf("%d ", data[i]);
+	}
+	printf("\nResult: ");
+	
+	for (int i = 0; i < 8; i++) {
+		printf("%d ", result[i]);
+	}
+	printf("\n");
+
+	__asm__ volatile (
+			"vsetvli t0, %2, e8, m1 \n"
+			".word 0x1AF48007 \n"
+			"vse8.v v0, (%3) \n"
+			:
+			: "r"(data), "r"(index), "r"(8), "r"(result)
+			: "t0", "v0"
+			);
+
+	printf("After assembly execution:\n");
+	printf("Result: ");
+	for (int i = 0; i < 8; i++) {
+		printf("%d ", result[i]);
+	}
+	printf("\n");
+
+	printf("Final index value: %lu\n", index);
+	printf("Final data memory address: %p\n", (void*)data);
+	printf("Final result memory address: %p\n", (void*)result);
+	
+	return 0;
+}
+

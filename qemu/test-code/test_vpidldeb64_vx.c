@@ -1,0 +1,58 @@
+#include <stdio.h>
+#include <stdint.h>
+
+#define VL 8  
+
+int main() {
+	uint64_t vector_mem[64] = {
+		1, 2, 3, 4, 5, 6, 7, 8,
+		9, 10, 11, 12, 13, 14, 15, 16,
+		17, 18, 19, 20, 21, 22, 23, 24,
+		25, 26, 27, 28, 29, 30, 31, 32,
+		33, 34, 35, 36, 37, 38, 39, 40,
+		41, 42, 43, 44, 45, 46, 47, 48,
+		49, 50, 51, 52, 53, 54, 55, 56,
+		57, 58, 59, 60, 61, 62, 63, 64
+	};
+
+       	uint64_t scalar = 1;
+	uint64_t result_v1[VL] = {0};
+	uint64_t result_v2[VL] = {0};
+	uint64_t result_v3[VL] = {0};
+	uint64_t result_v4[VL] = {0};
+	uint64_t result_v5[VL] = {0};
+	uint64_t result_v6[VL] = {0};
+	uint64_t result_v7[VL] = {0};
+	uint64_t result_v8[VL] = {0};
+
+	__asm__ volatile (
+			"vsetvli t0, %2, e64, m1 \n"
+			"vle64.v v9, (%0) \n"
+			".word 0x469360D7 \n"
+			"vse64.v v1, (%3) \n"
+			"vse64.v v2, (%4) \n"
+			"vse64.v v3, (%5) \n"
+			"vse64.v v4, (%6) \n"
+			"vse64.v v5, (%7) \n"
+			"vse64.v v6, (%8) \n"
+			"vse64.v v7, (%9) \n"
+			"vse64.v v8, (%10) \n"
+			:
+			: "r"(vector_mem + scalar * 8), "r"(scalar), "r"(VL),
+			"r"(result_v1), "r"(result_v2), "r"(result_v3), "r"(result_v4),
+			"r"(result_v5), "r"(result_v6), "r"(result_v7), "r"(result_v8)
+			: "t0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9"
+			);
+	printf("Result Vector Registers:\n");
+
+	printf("v1[%ld]: %lu\n", scalar, result_v1[scalar]);
+	printf("v2[%ld]: %lu\n", scalar, result_v2[scalar]);
+	printf("v3[%ld]: %lu\n", scalar, result_v3[scalar]);
+	printf("v4[%ld]: %lu\n", scalar, result_v4[scalar]);
+	printf("v5[%ld]: %lu\n", scalar, result_v5[scalar]);
+	printf("v6[%ld]: %lu\n", scalar, result_v6[scalar]);
+	printf("v7[%ld]: %lu\n", scalar, result_v7[scalar]);
+	printf("v8[%ld]: %lu\n", scalar, result_v8[scalar]);
+		
+	return 0;
+}
