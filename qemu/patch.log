@@ -1,0 +1,220 @@
+patching file accel/tcg/cputlb.c
+Hunk #1 succeeded at 1017 (offset -19 lines).
+Hunk #2 succeeded at 1045 (offset -19 lines).
+Hunk #3 succeeded at 1152 (offset -19 lines).
+Hunk #4 FAILED at 1202.
+Hunk #5 FAILED at 1212.
+Hunk #6 succeeded at 1268 (offset 17 lines).
+Hunk #7 succeeded at 1591 (offset 17 lines).
+Hunk #8 succeeded at 1981 (offset 8 lines).
+Hunk #9 succeeded at 2002 (offset 8 lines).
+Hunk #10 succeeded at 2522 (offset 8 lines).
+Hunk #11 succeeded at 2542 (offset 8 lines).
+2 out of 11 hunks FAILED
+
+patching file docs/system/riscv/virt.rst
+Hunk #1 succeeded at 146 with fuzz 2 (offset 30 lines).
+
+patching file hw/misc/Kconfig
+Hunk #1 succeeded at 225 (offset 12 lines).
+
+patching file hw/misc/meson.build
+Hunk #1 FAILED at 34.
+1 out of 1 hunk FAILED
+
+patching file hw/misc/my_device.c
+
+patching file hw/misc/mydev_dma.c
+
+patching file hw/misc/riscv_wgchecker.c
+
+patching file hw/misc/riscv_worldguard.c
+
+patching file hw/misc/trace-events
+Hunk #1 succeeded at 368 (offset 12 lines).
+
+patching file hw/riscv/Kconfig
+Hunk #1 FAILED at 56.
+1 out of 1 hunk FAILED
+
+patching file hw/riscv/boot.c
+Hunk #1 succeeded at 26 with fuzz 2.
+Hunk #2 FAILED at 389.
+1 out of 2 hunks FAILED
+
+patching file hw/riscv/virt.c
+Hunk #1 FAILED at 55.
+Hunk #2 FAILED at 69.
+Hunk #3 succeeded at 130 with fuzz 2 (offset 29 lines).
+Hunk #4 succeeded at 214 (offset 29 lines).
+Hunk #5 succeeded at 224 (offset 29 lines).
+Hunk #6 succeeded at 1598 with fuzz 1 (offset 522 lines).
+Hunk #7 FAILED at 1146.
+Hunk #8 succeeded at 2037 with fuzz 1 (offset 612 lines).
+Hunk #9 succeeded at 2213 (offset 625 lines).
+Hunk #10 succeeded at 2234 (offset 625 lines).
+Hunk #11 succeeded at 2366 (offset 625 lines).
+Hunk #12 succeeded at 2419 (offset 647 lines).
+Hunk #13 succeeded at 2437 (offset 647 lines).
+Hunk #14 succeeded at 2509 with fuzz 1 (offset 667 lines).
+Hunk #15 succeeded at 2663 with fuzz 1 (offset 737 lines).
+Hunk #16 succeeded at 2795 (offset 750 lines).
+Hunk #17 FAILED at 2055.
+4 out of 17 hunks FAILED
+
+# KKM
+# exec-all.h --> include/exec/cputlb.h
+patching file include/exec/exec-all.h
+Hunk #1 FAILED at 205.
+Hunk #2 FAILED at 231.
+Hunk #3 FAILED at 240.
+Hunk #4 succeeded at 232 (offset -364 lines).
+3 out of 4 hunks FAILED
+
+patching file include/exec/memattrs.h
+Hunk #1 FAILED at 52.
+1 out of 1 hunk FAILED
+
+patching file include/hw/core/cpu.h
+Hunk #1 succeeded at 219 (offset 2 lines).
+
+patching file include/hw/misc/riscv_worldguard.h
+
+patching file include/hw/riscv/virt.h
+Hunk #1 FAILED at 57.
+Hunk #2 FAILED at 84.
+Hunk #3 succeeded at 119 (offset 20 lines).
+Hunk #4 succeeded at 179 with fuzz 2 (offset 25 lines).
+2 out of 4 hunks FAILED
+
+patching file linux-drivers/my_device/Makefile
+
+patching file linux-drivers/my_device/mydevice_driver.c
+
+patching file linux-drivers/mydev_dma/Makefile
+
+patching file linux-drivers/mydev_dma/mydev_dma_driver.c
+
+patching file linux-drivers/mydev_dma/user-refernce/MyDMADevice.cpp
+
+patching file linux-drivers/mydev_dma/user-refernce/MyDMADevice.hpp
+
+patching file system/physmem.c
+Hunk #1 succeeded at 681 (offset 7 lines).
+Hunk #2 succeeded at 705 (offset 7 lines).
+
+patching file target/alpha/helper.c
+
+patching file target/arm/tcg/tlb_helper.c
+Hunk #1 FAILED at 361.
+1 out of 1 hunk FAILED
+
+patching file target/avr/helper.c
+can't find file to patch at input line 3501
+Perhaps you used the wrong -p or --strip option?
+The text leading up to this was:
+--------------------------
+|diff --git a/target/cris/helper.c b/target/cris/helper.c
+|index 1c3f868..6442443 100644
+|--- a/target/cris/helper.c
+|+++ b/target/cris/helper.c
+--------------------------
+No file to patch.  Skipping patch.
+1 out of 1 hunk ignored
+
+patching file target/hppa/mem_helper.c
+Hunk #1 FAILED at 461.
+1 out of 1 hunk FAILED
+can't find file to patch at input line 3527
+Perhaps you used the wrong -p or --strip option?
+The text leading up to this was:
+--------------------------
+|diff --git a/target/i386/tcg/sysemu/excp_helper.c b/target/i386/tcg/sysemu/excp_helper.c
+|index 8fb05b1..c7a53a1 100644
+|--- a/target/i386/tcg/sysemu/excp_helper.c
+|+++ b/target/i386/tcg/sysemu/excp_helper.c
+--------------------------
+No file to patch.  Skipping patch.
+1 out of 1 hunk ignored
+
+patching file target/loongarch/tcg/tlb_helper.c
+Hunk #1 succeeded at 522 (offset 32 lines).
+patching file target/m68k/helper.c
+Hunk #1 succeeded at 969 (offset 3 lines).
+Hunk #2 succeeded at 989 (offset 3 lines).
+Hunk #3 succeeded at 1462 (offset 3 lines).
+Hunk #4 succeeded at 1470 (offset 3 lines).
+Hunk #5 succeeded at 1484 (offset 3 lines).
+
+patching file target/microblaze/helper.c
+can't find file to patch at input line 3632
+Perhaps you used the wrong -p or --strip option?
+The text leading up to this was:
+--------------------------
+|diff --git a/target/mips/tcg/sysemu/tlb_helper.c b/target/mips/tcg/sysemu/tlb_helper.c
+|index 3836137..0560ab3 100644
+|--- a/target/mips/tcg/sysemu/tlb_helper.c
+|+++ b/target/mips/tcg/sysemu/tlb_helper.c
+--------------------------
+No file to patch.  Skipping patch.
+2 out of 2 hunks ignored
+
+patching file target/openrisc/mmu.c
+
+patching file target/ppc/mmu_helper.c
+Hunk #1 succeeded at 1369 (offset 1 line).
+
+patching file target/riscv/cpu.c
+Hunk #1 succeeded at 236 with fuzz 2 (offset 27 lines).
+Hunk #2 succeeded at 1141 with fuzz 1 (offset 114 lines).
+Hunk #3 FAILED at 1612.
+Hunk #4 FAILED at 2700.
+Hunk #5 FAILED at 2746.
+3 out of 5 hunks FAILED
+
+patching file target/riscv/cpu.h
+Hunk #1 FAILED at 472.
+Hunk #2 FAILED at 544.
+Hunk #3 succeeded at 621 (offset 40 lines).
+2 out of 3 hunks FAILED
+
+patching file target/riscv/cpu_bits.h
+Hunk #1 succeeded at 408 (offset 45 lines).
+
+patching file target/riscv/cpu_cfg.h
+Hunk #1 FAILED at 125.
+Hunk #2 succeeded at 193 (offset 24 lines).
+1 out of 2 hunks FAILED
+
+patching file target/riscv/cpu_helper.c
+Hunk #1 FAILED at 149.
+Hunk #2 succeeded at 1752 with fuzz 1 (offset 538 lines).
+Hunk #3 FAILED at 1333.
+Hunk #4 succeeded at 1977 (offset 547 lines).
+2 out of 4 hunks FAILED
+
+patching file target/riscv/csr.c
+Hunk #1 succeeded at 5388 (offset 822 lines).
+Hunk #2 succeeded at 6587 (offset 868 lines).
+
+patching file target/riscv/tcg/tcg-cpu.c
+Hunk #1 succeeded at 694 with fuzz 1 (offset 71 lines).
+
+patching file target/rx/cpu.c
+Hunk #1 succeeded at 182 (offset 19 lines).
+
+patching file target/s390x/tcg/excp_helper.c
+Hunk #1 succeeded at 179 (offset 1 line).
+
+patching file target/sh4/helper.c
+Hunk #1 succeeded at 808 (offset 1 line).
+
+patching file target/sparc/mmu_helper.c
+
+patching file target/tricore/helper.c
+
+patching file target/xtensa/helper.c
+Hunk #1 succeeded at 281 (offset 1 line).
+
+patching file worldguard-patches-for-qemu-v9.1.0.zip
+

@@ -34,6 +34,9 @@ system_ss.add(when: 'CONFIG_SIFIVE_E_PRCI', if_true: files('sifive_e_prci.c'))
 system_ss.add(when: 'CONFIG_SIFIVE_E_AON', if_true: files('sifive_e_aon.c'))
 system_ss.add(when: 'CONFIG_SIFIVE_U_OTP', if_true: files('sifive_u_otp.c'))
 system_ss.add(when: 'CONFIG_SIFIVE_U_PRCI', if_true: files('sifive_u_prci.c'))
+system_ss.add(when: 'CONFIG_MY_DEVICE', if_true: files('my_device.c'))
+system_ss.add(when: 'CONFIG_MYDEV_DMA', if_true: files('mydev_dma.c'))
+specific_ss.add(when: 'CONFIG_RISCV_WORLDGUARD', if_true: files('riscv_worldguard.c', 'riscv_wgchecker.c'))
 specific_ss.add(when: 'CONFIG_RISCV_RPMI', if_true: files(
   'riscv_rpmi.c',
   'riscv_rpmi_clock.c',

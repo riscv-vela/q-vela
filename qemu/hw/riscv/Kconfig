@@ -73,6 +73,9 @@ config RISCV_VIRT
     select PLATFORM_BUS
     select ACPI
     select ACPI_PCI
+    select RISCV_WORLDGUARD
+    select MY_DEVICE
+    select MYDEV_DMA
     select ACPI_HW_REDUCED
 
 config SHAKTI_C

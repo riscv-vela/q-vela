@@ -146,6 +146,16 @@ The following machine-specific options are supported:
 
   Enables the riscv-iommu-sys platform device. Defaults to 'off'.
 
+- wg=[on|off]
+
+  When this option is "on", RISC-V WorldGuard will be enabled in the system
+  to provide the isolation of multiple worlds. RISC-V HARTS will enable WG
+  extensions to have WID in memory transaction. wgCheckers in front of RAMs
+  and device MMIO will be enabled to provide the access control of resources
+  if the transaction contains WID. When not specified, this option is assumed
+  to be "off".
+  This option is restricted to the TCG accelerator.
+
 Running Linux kernel
 --------------------
 

@@ -60,11 +60,13 @@ struct RISCVVirtState {
     bool have_reri;
     RISCVVirtAIAType aia_type;
     int aia_guests;
+    bool have_wg;
     char *oem_id;
     char *oem_table_id;
     OnOffAuto acpi;
     const MemMapEntry *memmap;
     struct GPEXHost *gpex_host;
+    char *rom;
     OnOffAuto iommu_sys;
     uint32_t sysmsi_gsi_base;
 };
@@ -95,6 +97,12 @@ enum {
     VIRT_PCIE_PIO,
     VIRT_PLATFORM_BUS,
     VIRT_PCIE_ECAM,
+    VIRT_WGC_DRAM,
+    VIRT_WGC_FLASH,
+    VIRT_WGC_UART,
+    VIRT_MY_DEVICE,
+    VIRT_MYDEV_DMA,
+    VIRT_WGC_MYDEV_DMA,
     VIRT_IOMMU_SYS,
     VIRT_RERI_BANK_DRAM,
     VIRT_RERI_BANK_HARTS,
@@ -109,6 +117,12 @@ enum {
 enum {
     UART0_IRQ = 10,
     RTC_IRQ = 11,
+    WGC_DRAM_IRQ = 15,
+    WGC_FLASH_IRQ = 16,
+    WGC_UART_IRQ = 17,
+    MY_DEVICE_IRQ = 18,
+    MYDEV_DMA_IRQ = 19,
+    WGC_MYDEV_DMA_IRQ = 20,
     VIRTIO_IRQ = 1, /* 1 to 8 */
     VIRTIO_COUNT = 8,
     PCIE_IRQ = 0x20, /* 32 to 35 */
@@ -119,7 +133,7 @@ enum {
 #define VIRT_PLATFORM_BUS_NUM_IRQS 32
 
 #define VIRT_IRQCHIP_NUM_MSIS 255
-#define VIRT_IRQCHIP_NUM_SOURCES 96
+#define VIRT_IRQCHIP_NUM_SOURCES 128
 #define VIRT_IRQCHIP_NUM_PRIO_BITS 3
 #define VIRT_IRQCHIP_MAX_GUESTS_BITS 3
 #define VIRT_IRQCHIP_MAX_GUESTS ((1U << VIRT_IRQCHIP_MAX_GUESTS_BITS) - 1U)
@@ -178,5 +192,11 @@ uint32_t imsic_num_bits(uint32_t count);
 #endif
 
 extern uint16_t iommu_bdf;
+
+/* WorldGuard */
+#define VIRT_WG_NWORLDS        8 
+#define VIRT_WG_TRUSTEDWID     7
+#define VIRT_WG_HWBYPASS        true
+#define VIRT_WG_TZCOMPAT        false
 
 #endif

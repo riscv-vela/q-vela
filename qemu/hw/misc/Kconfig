@@ -225,4 +225,11 @@ config IOSB
 config XLNX_VERSAL_TRNG
     bool
 
+config RISCV_WORLDGUARD
+    bool
+
+config MY_DEVICE
+    bool
+config MYDEV_DMA
+    bool
 source macio/Kconfig

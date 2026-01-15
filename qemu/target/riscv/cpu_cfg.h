@@ -137,6 +137,9 @@ struct RISCVCPUConfig {
     bool ext_ssctr;
     bool ext_sscofpmf;
     bool ext_smepmp;
+    bool ext_smwg;
+    bool ext_smwgd;
+    bool ext_sswg;
     bool ext_smrnmi;
     bool ext_ssnpm;
     bool ext_smnpm;
@@ -193,6 +196,8 @@ struct RISCVCPUConfig {
     bool pmp;
     bool debug;
     bool misa_w;
+    uint32_t mwid;
+    uint32_t mwidlist;
 
     bool short_isa_string;
 

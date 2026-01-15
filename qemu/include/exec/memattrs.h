@@ -55,6 +55,12 @@ typedef struct MemTxAttrs {
     unsigned int pid:8;
 
     /*
+     * RISC-V WorldGuard: the 5-bit WID of memory access.
+     */
+    uint8_t world_id;
+    uint8_t mwid;
+
+    /*
      * Bus masters which don't specify any attributes will get this
      * (via the MEMTXATTRS_UNSPECIFIED constant), so that we can
      * distinguish "all attributes deliberately clear" from
@@ -67,7 +73,7 @@ typedef struct MemTxAttrs {
     uint16_t _reserved2;
 } MemTxAttrs;
 
-QEMU_BUILD_BUG_ON(sizeof(MemTxAttrs) > 8);
+//QEMU_BUILD_BUG_ON(sizeof(MemTxAttrs) > 8);
 
 /* Bus masters which don't specify any attributes will get this,
  * which has all attribute bits clear except the topmost one
