@@ -27,11 +27,11 @@
 #define IGELU 3
 #define SOFTMAX 4
 
-#define row_align(blocks) __attribute__((aligned(blocks*DIM*sizeof(elem_t))))
-#define row_align_acc(blocks) __attribute__((aligned(blocks*DIM*sizeof(acc_t))))
-
 typedef int8_t elem_t;
 typedef int32_t acc_t;
+
+#define row_align(blocks) __attribute__((aligned(blocks*DIM*sizeof(elem_t))))
+#define row_align_acc(blocks) __attribute__((aligned(blocks*DIM*sizeof(acc_t))))
 
 typedef float scale_t;
 typedef uint32_t scale_t_bits;
