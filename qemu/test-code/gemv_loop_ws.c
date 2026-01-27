@@ -1,63 +1,209 @@
 #include <stdio.h>
-#include "gemmini_api.h"
+#include <stdlib.h>
+#include <stdint.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include "rocc_api.h"
+#include <time.h>
 
-#define MAT_DIM_I 64
-#define MAT_DIM_J 64
-#define ACC_ROWS 512
-#define relu 1
+#define MAT_DIM_I 1 // batch (=Q rows)
+#define MAT_DIM_K 64 // Q, K feature lengt
+#define MAT_DIM_J 32 // sequence length
+#define MAT_DIM_V 32 // V vector length
 
-typedef int8_t elem_t;
-#define row_align(x) __attribute__((aligned(64)))
+#define I_PAD (((MAT_DIM_I + DIM - 1) / DIM) * DIM)
+#define K_PAD (((MAT_DIM_K + DIM - 1) / DIM) * DIM)
+#define J_PAD (((MAT_DIM_J + DIM - 1) / DIM) * DIM)
+#define V_PAD (((MAT_DIM_V + DIM - 1) / DIM) * DIM)
 
-#define stride MAT_DIM_J
-#define A_row_stride stride
-#define B_row_stride stride
-#define C_row_stride stride
+#define IB (I_PAD / DIM)
+#define KB (K_PAD / DIM)
+#define JB (J_PAD / DIM)
+#define VB (V_PAD / DIM)
 
-int main() {
-    static elem_t A[MAT_DIM_I][MAT_DIM_J] row_align(1);
-    static elem_t B[MAT_DIM_I][MAT_DIM_J] row_align(1);
-    static elem_t C[MAT_DIM_I][MAT_DIM_J] row_align(1);
+#define MVIN_SCALE_IDENTITY 1.0
+#define ACC_SCALE_IDENTITY 1.0
 
-    size_t tile_I = MAT_DIM_I;
-    size_t tile_J = MAT_DIM_J;
+#define NO_ACTIVATION 0
+#define RELU 1
+#define LAYERNORM 2
+#define IGELU 3
+#define SOFTMAX 4
+#define ACT_FN SOFTMAX
 
-    size_t total_acc_rows = (tile_I / DIM + (tile_I % DIM != 0)) * DIM *
-                            (tile_J / DIM + (tile_J % DIM != 0));
+#define NO_BIAS 0
+#define FULL_BIAS_WIDTH 1
+#define BERT_SCALE 0.8
+#if FULL_BIAS_WIDTH
+typedef acc_t ACC_T;
+#else
+typedef elem_t ACC_T;
+#endif
+typedef float acc_scale_t;
 
-    while (total_acc_rows > ACC_ROWS / 2) {
-        if (tile_I >= tile_J || tile_J <= DIM)
-            tile_I /= 2;
-        else
-            tile_J -= DIM;
+//stage-1 (Q dot K^T to softmax)
+static elem_t Q[MAT_DIM_I][MAT_DIM_K] row_align(1);
+static elem_t Kmat[MAT_DIM_K][MAT_DIM_J] row_align(1);
+static elem_t Kmat_reordered[JB*DIM][KB*DIM] row_align(1);
+static elem_t Soft[MAT_DIM_I][MAT_DIM_J] row_align(1);
+// stage-2 (softmax dot V to output)
+static elem_t Vmat[MAT_DIM_J][MAT_DIM_V] row_align(1);
+static elem_t Vmat_reordered[VB*DIM][JB*DIM] row_align(1);
+static elem_t O[MAT_DIM_I][MAT_DIM_V] row_align(1);
+static ACC_T DummyBias[MAT_DIM_I][MAT_DIM_J] row_align_acc(1);
 
-        total_acc_rows = (tile_I / DIM + (tile_I % DIM != 0)) * DIM *
-                         (tile_J / DIM + (tile_J % DIM != 0));
-    }
 
-    for (size_t i = 0; i < MAT_DIM_I; i += tile_I) {
-        for (size_t j = 0; j < MAT_DIM_J; j += tile_J) {
-            size_t I_tile = (i + tile_I <= MAT_DIM_I) ? tile_I : MAT_DIM_I - i;
-            size_t J_tile = (j + tile_J <= MAT_DIM_J) ? tile_J : MAT_DIM_J - j;
+void print_matrix(elem_t *base, size_t rows, size_t cols) {
+	for (size_t r = 0; r < rows; ++r) {
+		for (size_t c = 0; c < cols; ++c)
+			printf("%d ", base[r*cols + c]);
+		printf("\n");
+	}
+}
+static void init_mats(void) {
+	srand(time(NULL));
+	/*Q*/
+	for (size_t i = 0; i < MAT_DIM_I; ++i)
+		for (size_t k = 0; k < MAT_DIM_K; ++k)
+			Q[i][k] = 1;
+	/* K */
+	for (size_t k = 0; k < MAT_DIM_K; ++k)
+		for (size_t j = 0; j < MAT_DIM_J; ++j)
+			Kmat[k][j] = rand() % 16 == 1 ? 1 : 0;
+	/* V */
+	for (size_t j = 0; j < MAT_DIM_J; ++j)
+		for (size_t v = 0; v < MAT_DIM_V; ++v)
+			Vmat[j][v] = rand() % 16 == 1 ? 1 : 0;
 
-            const elem_t *a = &A[i][0];
-            const elem_t *b = &B[j][0];
-            elem_t *c = &C[i][0];
-	   
-            int pad_I = (I_tile % DIM == 0) ? 0 : DIM - (I_tile % DIM);
-            int pad_J = (J_tile % DIM == 0) ? 0 : DIM - (J_tile % DIM);
+	for (size_t i = 0; i < MAT_DIM_I; ++i)
+		for (size_t j = 0; j < MAT_DIM_J; ++j)
+			DummyBias[i][j] = 3;
+}
+static void init_mats2(void) {
+	srand(time(NULL));
+	/*Q*/
+	for (size_t i = 0; i < MAT_DIM_I; ++i)
+		for (size_t k = 0; k < MAT_DIM_K; ++k)
+			Q[i][k] = 1;
+	/* K */
+	for (size_t k = 0; k < MAT_DIM_K; ++k){
+		for (size_t j = 0; j < MAT_DIM_J; ++j){
+			if(k == j)
+				Kmat[k][j] = 1;
+			else
+				Kmat[k][j] = 0;
+		}
+	}
+	/* V */
+	for (size_t j = 0; j < MAT_DIM_J; ++j)
+		for (size_t v = 0; v < MAT_DIM_V; ++v)
+			Vmat[j][v] = 1;
 
-	    I_tile = (I_tile%DIM == 0) ? (int)(I_tile/DIM) : (int)(I_tile/DIM) + 1;
-	    J_tile = (J_tile%DIM == 0) ? (int)(J_tile/DIM) : (int)(J_tile/DIM) + 1;
-            gemmini_loop_ws(I_tile, J_tile, 0,
-                            pad_I, pad_J, 0,
-                            (int8_t*)a, (int8_t*)b, NULL, (int8_t*)c,
-                            A_row_stride, B_row_stride, 0, C_row_stride,
-                            false, false, false, false, false, relu,
-                            0, 0, true);
-        }
-    }
+	for (size_t i = 0; i < MAT_DIM_I; ++i)
+		for (size_t j = 0; j < MAT_DIM_J; ++j)
+			DummyBias[i][j] = rand() % 2;
+}
+static void reorder_K(elem_t *dst, elem_t *src, int stride, int row_tile, int col_tile){
+	size_t out = 0;
+	for (size_t jb = 0; jb < col_tile; ++jb){ // col-tile
+		for (size_t k = 0; k < DIM; ++k){
+			for (size_t kb = 0; kb < row_tile; ++kb){
+				for (size_t j = 0; j < DIM; ++j){
+					dst[out] = src[(kb*DIM + k)*stride+ jb*DIM + j];
+					out++;
+				}
+			}
+		}
+	}
+}
+int main(){
 
-    return 0;
+	init_mats2();
+	reorder_K((elem_t *)Kmat_reordered, (elem_t *)Kmat, MAT_DIM_J, KB, JB);
+	reorder_K((elem_t *)Vmat_reordered, (elem_t *)Vmat, MAT_DIM_V, JB, VB);
+	gemmini_fence();
+	gemmini_init_trace();
+
+	/* ======================== Stage-1 ============================ */
+	const size_t pad_I = I_PAD - MAT_DIM_I;
+	const size_t pad_K = K_PAD - MAT_DIM_K;
+	const size_t pad_J = J_PAD - MAT_DIM_J;
+	
+	gemmini_extended_config_ex(WS, ACT_FN & 3, 0, 1, false, false);
+	gemmini_extended_config_st(MAT_DIM_J * sizeof(elem_t), ACT_FN & 3, ACC_SCALE_IDENTITY);
+	gemmini_extended3_config_ld(MAT_DIM_K * sizeof(elem_t), MVIN_SCALE_IDENTITY,false,0);
+	gemmini_extended3_config_ld(KB*DIM * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 1); //K^T							
+	gemmini_extended3_config_ld(MAT_DIM_J * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 2); // no bias
+	if (ACT_FN == SOFTMAX){
+		const scale_t a = 0.3585;
+		const scale_t b = 1.353;
+		const scale_t c = 0.344;
+		const acc_t qln2 = (int) (0.693147 / BERT_SCALE);
+		const acc_t qln2_inv = qln2 == 0 ? -1 : 65536 / qln2;
+		const acc_t qb = b / BERT_SCALE;
+		const acc_t qc = c / (a*BERT_SCALE*BERT_SCALE);
+
+		gemmini_config_norm(qln2, 0, 0, 1, 0, qb, qc);
+		gemmini_config_norm(qln2_inv, 1, 0, 1, 0, qb, qc);
+	}
+	//const unsigned long start = read_cycles();
+
+	gemv_loop_ws(
+			IB, JB, KB,
+			pad_I, pad_J, pad_K,
+			(elem_t*)Q, (elem_t*)Kmat_reordered,
+			NO_BIAS ? NULL : &DummyBias[0][0], /* no bias */
+			(elem_t*)Soft,
+			MAT_DIM_K, DIM*KB, /*B_stride = DIM * KB because of
+						 reordering*/
+			MAT_DIM_J, MAT_DIM_J,
+			false, false,
+			/*full_C*/false, /*low_D*/false,
+			/*ex_accumulate*/false,
+			NO_ACTIVATION,
+			/*a_spad_id*/0,
+			/*b_spad_id*/0,
+			/*c_spad_id*/3,
+			/*is_resadd*/false);
+	gemmini_fence();
+	printf("Soft matrix (I - 128) ð J = %d - 128) ð %d):\n", MAT_DIM_I, MAT_DIM_J);
+	print_matrix(&Soft[0][0], MAT_DIM_I, MAT_DIM_J);
+	printf("\n");
+	sleep(1);
+
+	/* =========================== Stage-2 ============================= */
+	/* pad counts for Soft (1xJ) dot V (JxV) */
+	const size_t pad_V = V_PAD - MAT_DIM_V;
+	gemmini_extended_config_ex(WS, NO_ACTIVATION, 0, 1, false, false);
+	gemmini_extended_config_st(MAT_DIM_V * sizeof(elem_t), NO_ACTIVATION,ACC_SCALE_IDENTITY);
+	gemmini_extended3_config_ld(MAT_DIM_J * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 0);
+	// Soft (MVIN skipped)
+	gemmini_extended3_config_ld(JB*DIM * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 1);
+	gemmini_extended3_config_ld(MAT_DIM_J * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 2);
+	
+	gemv_loop_ws(
+			IB, VB, JB,
+			pad_I, pad_V, pad_J,
+			NULL,/* A skipped, reuse bank 2 */
+			(elem_t*)Vmat_reordered,
+			NO_BIAS ? NULL : &DummyBias[0][0],
+			(elem_t*)O,
+			MAT_DIM_J, JB * DIM,
+			MAT_DIM_V, MAT_DIM_V,
+			false, false,
+			/*full_C*/false, /*low_D*/false,
+			/*ex_accumulate*/false,
+			NO_ACTIVATION,
+			/*a_spad_id*/3, /* Soft in bank 2 */
+			/*b_spad_id*/0,
+			/*c_spad_id*/0,
+			/*is_resadd*/false);
+	gemmini_fence();
+	//const unsigned long end = read_cycles();
+	//printf("Total Gemmini cycles: %u\n", end - start);
+	printf("loop_ws O matrix (I - 128) ð J = %d - 128) ð %d):\n", MAT_DIM_I,MAT_DIM_V);
+	print_matrix(&O[0][0], MAT_DIM_I, MAT_DIM_V);
+	printf("\n");
+	gemmini_dump_trace();
+	return 0;
 }
