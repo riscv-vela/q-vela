@@ -16,6 +16,7 @@ void gemmini_registry_add(GemminiState *s, int id);
 GemminiState *gemmini_registry_get(int id);
 bool gemmini_registry_delete(int id);
 uint32_t gemmini_registry_count(void);
+
 //void gemmini_realize(DeviceState *dev, Error **errp);
 
 // static bool gemmini_registry_delete(int id) {

@@ -1107,6 +1107,8 @@ k_gemv_loop_ws_strides_ab       0011011 ..... ..... 011 ..... 1111011 @r
 k_gemv_loop_ws_strides_dc       0011100 ..... ..... 011 ..... 1111011 @r
 k_gemv_loop_ws_flags            0010111 ..... ..... 011 ..... 1111011 @r
 
+ternary_loop_ws 	         0011110 ..... ..... 011 ..... 1111011 @r
+
 gemmini_config                  0000000 ..... ..... 011 ..... 1111011 @r
 gemmini_mvin2                   0000001 ..... ..... 011 ..... 1111011 @r
 gemmini_mvin                    0000010 ..... ..... 011 ..... 1111011 @r
@@ -1115,5 +1117,8 @@ gemmini_mvout                   0000011 ..... ..... 011 ..... 1111011 @r
 gemmini_compute_preloaded       0000100 ..... ..... 011 ..... 1111011 @r
 gemmini_compute_accumulate      0000101 ..... ..... 011 ..... 1111011 @r
 gemmini_preload                 0000110 ..... ..... 011 ..... 1111011 @r
+gemmini_dump_trace              1111111 ..... ..... 011 ..... 1111011 @r
+gemmini_init_trace              1111110 ..... ..... 011 ..... 1111011 @r
+
 #gemmini_flush                   0000111 ..... ..... 011 ..... 1111011 @r
 #gemmini_fence                   0111111 ..... ..... 011 ..... 1111011 @r

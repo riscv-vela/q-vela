@@ -180,3 +180,7 @@ system_ss.add(when: 'CONFIG_SBSA_REF', if_true: files('sbsa_ec.c'))
 
 # HPPA devices
 system_ss.add(when: 'CONFIG_LASI', if_true: files('lasi.c'))
+
+# Gemmini
+system_ss.add(files('gemmini/gemmini.c'))
+system_ss.add(files('gemmini/gemmini_manager.c'))

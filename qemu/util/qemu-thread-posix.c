@@ -22,6 +22,10 @@
 #include <pthread_np.h>
 #endif
 
+#include "qemu/log.h"
+#include <sys/syscall.h>
+#include <unistd.h>
+
 static bool name_threads;
 
 void qemu_thread_naming(bool enable)
@@ -505,6 +509,8 @@ static void *qemu_thread_start(void *args)
     void *(*start_routine)(void *) = qemu_thread_args->start_routine;
     void *arg = qemu_thread_args->arg;
     void *r;
+
+    qemu_log("qemu_thread_start called for %s at TID %ld\n", qemu_thread_args->name, syscall(SYS_gettid));
 
     /* Attempt to set the threads name; note that this is for debug, so
      * we're not going to fail if we can't set it.

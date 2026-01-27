@@ -1307,6 +1307,9 @@ DEF_HELPER_6(vfpid64b_vf, void, ptr, ptr, tl, ptr, env, i32)
 DEF_HELPER_6(vlc8to32_v, void, ptr, ptr, tl, ptr, env, i32)
 DEF_HELPER_6(vstrcmp_vv, void, ptr, ptr, ptr, ptr, env, i32)
 
+DEF_HELPER_5(rocc_exec, void, env, i32, i32, tl, tl)
+
+/*
 DEF_HELPER_3(loop_ws_config_bounds, void, env, tl, tl)
 DEF_HELPER_3(loop_ws_addrs_ab,      void, env, tl, tl)
 DEF_HELPER_3(loop_ws_addrs_dc,      void, env, tl, tl)
@@ -1326,6 +1329,7 @@ DEF_HELPER_4(mvin, void, env, tl, tl,int)
 DEF_HELPER_3(mvout, void, env, tl, tl)
 DEF_HELPER_3(compute, void, tl, tl, int)
 DEF_HELPER_2(preload, void, tl, tl)
+*/
 /*DEF_HELPER_3(gemmini_flush, void, env, tl, tl)
 DEF_HELPER_3(gemmini_fence, void, env, tl, tl)
 */
