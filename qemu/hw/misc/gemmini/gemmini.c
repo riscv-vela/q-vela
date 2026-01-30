@@ -13,6 +13,7 @@
 #include "exec/address-spaces.h"
 #include "exec/memory.h"
 #include "gemmini_manager.h"
+#include "qemu/thread.h"
 
 /* QOM Initialization for Gemmini */
 
@@ -40,6 +41,9 @@ static void gemmini_realize(DeviceState *dev, Error **errp)
 
     s->id = atoi(dev->id + strlen("gemmini"));
     gemmini_registry_add(s, s->id);
+
+    qemu_mutex_init(&s->gemmini_lock);
+    s->busy = false;
 
     memset(s->spad, 0, sizeof(s->spad));
     memset(s->accumulator, 0, sizeof(s->accumulator));
@@ -681,7 +685,7 @@ void compute(uint64_t a_addr, uint64_t bd_addr, bool preload, GemminiState *gm) 
           	    qemu_log("spad[%zu][%zu] : %d\n",base_sp_addr + gm->c_stride * i,j, gm->spad[base_sp_addr + gm->c_stride * i][j]);
 #endif
                 }
-	            gm->pe_state[i][j]=0;	
+	            //gm->pe_state[i][j]=0;	
             }
         }
     }

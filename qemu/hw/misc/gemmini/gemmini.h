@@ -79,6 +79,9 @@ typedef struct GemminiState {
     DeviceState parent;
 
     uint32_t id;
+    QemuMutex gemmini_lock;
+    bool busy;
+    uint32_t locked_by_cpu;
 
     uint32_t output_sp_addr;
     uint32_t preload_sp_addr;

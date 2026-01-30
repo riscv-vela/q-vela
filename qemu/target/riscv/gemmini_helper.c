@@ -11,6 +11,9 @@
 #include "hw/misc/gemmini/gemmini.h"
 #include "hw/misc/gemmini/gemmini_manager.h"
 
+#include "qemu/timer.h"
+#include "qemu/thread.h"
+
 GemminiState *riscv_cpu_get_gemmini(CPURISCVState *env);
 
 /*
@@ -65,14 +68,17 @@ void helper_rocc_exec(CPURISCVState *env,
     qemu_log("### helper_rocc_exec funct7=0x%x funct3=0x%x rs1=0x%lx rs2=0x%lx\n",
              funct7, funct3, rs1, rs2);
 
+    CPUState *cpu = env_cpu(env);
     GemminiState *gm = riscv_cpu_get_gemmini(env);
     if (!gm) {
         qemu_log("### Gemmini not attached (ignoring RoCC)\n");
         return;
     }
+    qemu_log("CPU %d trying to acquire Gemmini #%d\n", cpu->cpu_index, gm->id);
 
-    /* CPUState is Passed on right now but not used in gemmini_exec_cmd */
-    CPUState *cpu = env_cpu(env);
+    qemu_mutex_lock(&gm->gemmini_lock);
+    gm->busy = true;
+    gm->locked_by_cpu = cpu->cpu_index;
 
     gm->mem_opaque = env;
     gm->mem_read = gemmini_mem_read_cb;
@@ -80,5 +86,14 @@ void helper_rocc_exec(CPURISCVState *env,
 
     qemu_log("Calling Gemmini #%d exec cmd from core %d\n", gm->id, cpu->cpu_index);
 
+
+    int64_t start = cpu_get_host_ticks();
     gemmini_exec_cmd(gm, funct7, funct3, rs1, rs2, cpu);
+    int64_t end = cpu_get_host_ticks();
+    qemu_log("CPU %d completed Gemmini command (cycles: %ld)\n", 
+             cpu->cpu_index, end - start);
+
+    gm->busy = false;
+    gm->locked_by_cpu = -1;
+    qemu_mutex_unlock(&gm->gemmini_lock);
 }
