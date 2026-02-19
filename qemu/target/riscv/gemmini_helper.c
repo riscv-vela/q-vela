@@ -14,6 +14,10 @@
 #include "qemu/timer.h"
 #include "qemu/thread.h"
 
+/* Erase below for Debugging */
+#undef qemu_log
+#define qemu_log(...) do {} while (0)
+
 GemminiState *riscv_cpu_get_gemmini(CPURISCVState *env);
 
 /*
@@ -75,7 +79,9 @@ void helper_rocc_exec(CPURISCVState *env,
         return;
     }
     qemu_log("CPU %d trying to acquire Gemmini #%d\n", cpu->cpu_index, gm->id);
+    int64_t waitstart = cpu_get_host_ticks();
 
+    /* Multiple CPUs shouldn't access Gemmini simultaneously, requiring a lock */
     qemu_mutex_lock(&gm->gemmini_lock);
     gm->busy = true;
     gm->locked_by_cpu = cpu->cpu_index;
@@ -84,15 +90,18 @@ void helper_rocc_exec(CPURISCVState *env,
     gm->mem_read = gemmini_mem_read_cb;
     gm->mem_write = gemmini_mem_write_cb;
 
-    qemu_log("Calling Gemmini #%d exec cmd from core %d\n", gm->id, cpu->cpu_index);
+    int64_t waitend = cpu_get_host_ticks();
+    qemu_log("Obtained Gemmini #%d from core %d (cycles: %ld)\n", gm->id, cpu->cpu_index, waitend - waitstart);
 
 
     int64_t start = cpu_get_host_ticks();
+    /* Actual Execution happens here (definition at gemmini.c) */
     gemmini_exec_cmd(gm, funct7, funct3, rs1, rs2, cpu);
     int64_t end = cpu_get_host_ticks();
     qemu_log("CPU %d completed Gemmini command (cycles: %ld)\n", 
              cpu->cpu_index, end - start);
 
+    /* Release the lock after the command execution is complete */
     gm->busy = false;
     gm->locked_by_cpu = -1;
     qemu_mutex_unlock(&gm->gemmini_lock);

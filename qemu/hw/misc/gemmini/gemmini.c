@@ -15,6 +15,10 @@
 #include "gemmini_manager.h"
 #include "qemu/thread.h"
 
+/* Erase below for Debugging */
+#undef qemu_log
+#define qemu_log(...) do {} while (0)
+
 /* QOM Initialization for Gemmini */
 
 // GemminiState *global_gemmini_state;
@@ -685,7 +689,6 @@ void compute(uint64_t a_addr, uint64_t bd_addr, bool preload, GemminiState *gm) 
           	    qemu_log("spad[%zu][%zu] : %d\n",base_sp_addr + gm->c_stride * i,j, gm->spad[base_sp_addr + gm->c_stride * i][j]);
 #endif
                 }
-	            //gm->pe_state[i][j]=0;	
             }
         }
     }
@@ -1127,6 +1130,7 @@ void loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
     const uint16_t pad_I = gm->loop_ws_pad_I;
     const uint16_t pad_J = gm->loop_ws_pad_J;
     const uint16_t pad_K = gm->loop_ws_pad_K;
+    
 
     const uint32_t GARBAGE_ADDR = ~0;
 
@@ -1324,6 +1328,7 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
     const uint16_t I = gm->loop_ws_I;
     const uint16_t J = gm->loop_ws_J;
     const uint16_t K = gm->loop_ws_K;
+    const uint16_t J_blocks = (J + 3) / 4;
 
     const uint16_t pad_I = gm->loop_ws_pad_I;
     const uint16_t pad_J = gm->loop_ws_pad_J;
@@ -1364,11 +1369,15 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
     }
     for (uint16_t k = 0; k < K; k++) {
         /* We process four columns per iteration */
-        for (uint16_t j = 0; j < J / 4; j++) {
+        for (uint16_t j = 0; j < J_blocks; j++) {
             for (uint16_t i = 0; i < I; i++) {
+                    const uint16_t j_base = j * 4;
+                    const uint16_t tiles_in_block = (J - j_base > 4) ? 4 : (J - j_base);
+                    const uint16_t block_cols = tiles_in_block * DIM - (j == J_blocks - 1 ? pad_J : 0);
+                    const uint16_t block_packed_cols = (block_cols + 3) / 4;
                     const uint32_t A_sp_addr = a_transpose ? (A_sp_addr_start + (k*I + i)*DIM) :(A_sp_addr_start + (i*K + k)*DIM);
-                    const uint32_t B_sp_addr = b_transpose ? (B_sp_addr_start + (j*K + k)*DIM) :(B_sp_addr_start + (k*J/4 + j)*DIM);
-                    const uint32_t C_sp_addr = C_sp_addr_start + (i*J + j)*DIM;
+                    const uint32_t B_sp_addr = b_transpose ? (B_sp_addr_start + (j*K + k)*DIM) :(B_sp_addr_start + (k*J_blocks + j)*DIM);
+                    const uint32_t C_sp_addr = C_sp_addr_start + (i*J + j_base)*DIM;
                     if (j == 0) {
                         /* MVIN A */
                         uint64_t dram_addr, cols, rows;
@@ -1387,11 +1396,13 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
                         int64_t dram_addr, cols, rows;
                         if (b_transpose) {
                             dram_addr = gm->loop_ws_B + (j*gm->loop_ws_B_stride/4 + k) * DIM * sizeof(elem_t);
-                            cols = DIM - (k == K-1 ? pad_K : 0);
-                            rows = DIM - (j == J-1 ? pad_J : 0);
+                            // cols = DIM - (k == K-1 ? pad_K : 0);
+                            // rows = DIM - (j == J-1 ? pad_J : 0);
+                            cols = block_packed_cols;
+                            rows = DIM - (k == K-1 ? pad_K : 0);
                         } else {
                             dram_addr = gm->loop_ws_B + (k*gm->loop_ws_B_stride/4 + j) * DIM * sizeof(elem_t);
-                            cols = DIM - (j == J-1 ? pad_J : 0);
+                            cols = block_packed_cols;
                             rows = DIM - (k == K-1 ? pad_K : 0);
                         }
                         mvin(dram_addr, (rows << 48) | (cols << 32) | B_sp_addr, 1, gm);
@@ -1407,10 +1418,10 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
                         const uint64_t A_cols = DIM - (k == K - 1 ? pad_K : 0);
                         const uint64_t A_rows = DIM - (i == I - 1 ? pad_I : 0);
                         /* Ternary GEMM has x4 throughput than Ordinary GEMM */
-                        const uint64_t B_cols = 4 * DIM - (j == J - 1 ? pad_J : 0);
+                        const uint64_t B_cols = block_cols;
                         const uint64_t B_rows = DIM - (k == K - 1 ? pad_K : 0);
                         /* Ternary GEMM has x4 throughput than Ordinary GEMM */
-                        const uint64_t C_cols = 4 * DIM - (j == J - 1 ? pad_J : 0);
+                        const uint64_t C_cols = block_cols;
                         const uint64_t C_rows = DIM - (i == I - 1 ? pad_I : 0);
 
                         preload((B_rows << 48) | (B_cols << 32) | pre_sp_addr, (C_rows << 48) | (C_cols << 32) | out_sp_addr, gm);
@@ -1424,13 +1435,13 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
                         if ((act != LAYERNORM) && (act != SOFTMAX)) {
                             /* Not much to Worry, just take them out Block by Block */
                             const uint64_t C_dram_addr = gm->loop_ws_C +
-                            (i*gm->loop_ws_C_stride + j) * DIM * sizeof_C;
+                            (i*gm->loop_ws_C_stride + j_base) * DIM * sizeof_C;
 
-                            const uint64_t C_cols = 4 * DIM - (j == J - 1 ? pad_J : 0);
+                            const uint64_t C_cols = block_cols;
                             const uint64_t C_rows = DIM - (i == I - 1 ? pad_I : 0);
 
                             mvout(C_dram_addr, (C_rows << 48) | (C_cols << 32) | C_sp_addr, gm);
-                        } else if (((act == LAYERNORM) || (act == SOFTMAX)) && j == J - 1){
+                        } else if (((act == LAYERNORM) || (act == SOFTMAX)) && j == J_blocks - 1){
                             /* Softmax and LAYERNORM needs to look through whole row so Additional Norm across row is needed */
                             int norm_cmds_size;
                             uint32_t (*norm_cmds)[2];
@@ -1621,7 +1632,6 @@ void k_gemv_loop_ws(uint64_t rs1, uint64_t rs2, GemminiState *gm) {
                      * dram_addr 계산하는 방식 유의!
                      * (k와 j 바뀌어 있음-> 미리 k번째 블록이 가로에 위치하도록 정렬해둘 것이기 때문)
                      * pad 값 상관없이 다 가져옴, execute에서 pad 고려
-                     * (전임자분의 말씀, 아직 다 이해 못함 ㅋㅋㅋ)
                      */
                      if (b_transpose) {
                         dram_addr = gm->gemv_loop_ws_B +
@@ -1778,6 +1788,11 @@ void gemmini_exec_cmd(GemminiState *s, uint32_t funct7, uint32_t funct3, uint64_
         case 0b0000000: // CONFIG
             gemmini_config(rs1, rs2, s);
             break;
+        /* 
+         * MVIN, MVOUT, COMPUTE are not executed via ROCC
+         * Instead, they are called inside higher level functions like loop_ws
+         * So the cases below are just placeholders
+         */
         case 0b0000010: // MVIN
             mvin(rs1, rs2, 0, s);
             break;
@@ -1836,7 +1851,7 @@ void gemmini_exec_cmd(GemminiState *s, uint32_t funct7, uint32_t funct3, uint64_
             dump_trace(s);
             break;
         default:
-            qemu_log("Gemmini: Unknown funct7 0x%08x\n", funct7);
+            qemu_log("Gemmini #%d: Unknown funct7 0x%08x\n", s->id, funct7);
             break;
     }
 }

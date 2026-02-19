@@ -1,6 +1,10 @@
 /* Utility Functions for Gemmini */
 #include "gemmini.h"
 
+/* Erase below for Debugging */
+#undef qemu_log
+#define qemu_log(...) do {} while (0)
+
 #define ROUNDING_RIGHT_SHIFT(x, shift) \
     ((shift) > 0 ? (((x) >> (shift)) + \
         (((shift) == 0 ? 0 : (((x) >> ((shift)-1)) & 1)) & \

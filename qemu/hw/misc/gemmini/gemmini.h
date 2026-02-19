@@ -78,11 +78,13 @@ void dump_trace(GemminiState *gm);
 typedef struct GemminiState {
     DeviceState parent;
 
+    /* Features for Manager */
     uint32_t id;
     QemuMutex gemmini_lock;
     bool busy;
     uint32_t locked_by_cpu;
 
+    /* Features for Gemmini itself */
     uint32_t output_sp_addr;
     uint32_t preload_sp_addr;
     uint16_t preload_cols, preload_rows;
@@ -155,15 +157,18 @@ typedef struct GemminiState {
     uint64_t gemv_loop_ws_A, gemv_loop_ws_B, gemv_loop_ws_D, gemv_loop_ws_C;
     uint64_t gemv_loop_ws_A_stride, gemv_loop_ws_B_stride, gemv_loop_ws_D_stride, gemv_loop_ws_C_stride;
 
+    /* Memory Callbacks */
     void *mem_opaque;
     gemmini_mem_read_fn  mem_read;
     gemmini_mem_write_fn mem_write;
 
+    /* Trace */
     uint64_t total_writes_in_bytes;
     uint64_t total_reads_in_bytes;
 
 } GemminiState;
 
+/* Not Needed */
 extern GemminiState *global_gemmini_state;
 
 #endif // _GEMMINI_H
