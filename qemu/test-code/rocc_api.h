@@ -40,8 +40,22 @@ typedef uint32_t scale_acc_t_bits;
 typedef float acc_scale_t;
 typedef uint32_t acc_scale_t_bits;
 
+static inline void gemmini_heavy_compute_only(uint64_t iters)
+{
+    register uint64_t a0 asm("x10") = iters; // rs1
+    register uint64_t a1 asm("x11") = 0;     // rs2
+    asm volatile(
+        ".word 0x7ab5307b\n" // funct7=0x3d, rs2=x11, rs1=x10, funct3=3, rd=x0, opcode=0x7b
+        :
+        : "r"(a0), "r"(a1)
+        : "memory");
+}
+
 static inline void gemmini_fence(void){
-    asm volatile("" ::: "memory");
+    asm volatile (
+        ".word 0x7EB5307B\n"
+        : : : "memory"
+    );
 }
 
 static inline void gemmini_dump_trace(void)

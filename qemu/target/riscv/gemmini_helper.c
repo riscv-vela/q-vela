@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <assert.h>
+#include "exec/memory.h"
+#include "exec/address-spaces.h"
 #include "hw/misc/gemmini/gemmini.h"
 #include "hw/misc/gemmini/gemmini_manager.h"
 
@@ -63,6 +65,51 @@ static void gemmini_mem_write_cb(void *opaque, uint64_t addr, uint64_t data, uin
 }
 
 /* Universal RoCC helper function, Will be decoded in Gemmini itself. */
+// void helper_rocc_exec(CPURISCVState *env,
+//                       uint32_t funct7,
+//                       uint32_t funct3,
+//                       target_ulong rs1,
+//                       target_ulong rs2)
+// {
+//     qemu_log("### helper_rocc_exec funct7=0x%x funct3=0x%x rs1=0x%lx rs2=0x%lx\n",
+//              funct7, funct3, rs1, rs2);
+
+//     CPUState *cpu = env_cpu(env);
+//     GemminiState *gm = riscv_cpu_get_gemmini(env);
+//     if (!gm) {
+//         qemu_log("### Gemmini not attached (ignoring RoCC)\n");
+//         return;
+//     }
+//     qemu_log("CPU %d trying to acquire Gemmini #%d\n", cpu->cpu_index, gm->id);
+//     int64_t waitstart = cpu_get_host_ticks();
+
+//     /* Multiple CPUs shouldn't access Gemmini simultaneously, requiring a lock */
+//     qemu_mutex_lock(&gm->gemmini_lock);
+//     gm->busy = true;
+//     gm->locked_by_cpu = cpu->cpu_index;
+
+//     gm->mem_opaque = env;
+//     gm->mem_read = gemmini_mem_read_cb;
+//     gm->mem_write = gemmini_mem_write_cb;
+
+//     int64_t waitend = cpu_get_host_ticks();
+//     qemu_log("Obtained Gemmini #%d from core %d (cycles: %ld)\n", gm->id, cpu->cpu_index, waitend - waitstart);
+
+
+//     int64_t start = cpu_get_host_ticks();
+//     /* Actual Execution happens here (definition at gemmini.c) */
+//     gemmini_exec_cmd(gm, funct7, funct3, rs1, rs2, cpu);
+//     int64_t end = cpu_get_host_ticks();
+//     qemu_log("CPU %d completed Gemmini command (cycles: %ld)\n", 
+//              cpu->cpu_index, end - start);
+
+//     /* Release the lock after the command execution is complete */
+//     gm->busy = false;
+//     gm->locked_by_cpu = -1;
+//     qemu_mutex_unlock(&gm->gemmini_lock);
+// }
+
+/* Thread Enqueing Helper */
 void helper_rocc_exec(CPURISCVState *env,
                       uint32_t funct7,
                       uint32_t funct3,
@@ -78,31 +125,31 @@ void helper_rocc_exec(CPURISCVState *env,
         qemu_log("### Gemmini not attached (ignoring RoCC)\n");
         return;
     }
-    qemu_log("CPU %d trying to acquire Gemmini #%d\n", cpu->cpu_index, gm->id);
-    int64_t waitstart = cpu_get_host_ticks();
 
-    /* Multiple CPUs shouldn't access Gemmini simultaneously, requiring a lock */
-    qemu_mutex_lock(&gm->gemmini_lock);
-    gm->busy = true;
-    gm->locked_by_cpu = cpu->cpu_index;
+    qemu_mutex_lock(&gm->worker_lock);
+
+    if(funct7 == 0b0111111) { //FENCE
+        while ((gm->has_work || gm->worker_running) && !gm->stopped) {
+            qemu_cond_wait(&gm->worker_cond, &gm->worker_lock);
+        }
+        qemu_mutex_unlock(&gm->worker_lock);
+        return;
+    }
+
+    while(gm->has_work && !gm->stopped){
+        qemu_cond_wait(&gm->worker_cond, &gm->worker_lock);
+    }
 
     gm->mem_opaque = env;
     gm->mem_read = gemmini_mem_read_cb;
     gm->mem_write = gemmini_mem_write_cb;
 
-    int64_t waitend = cpu_get_host_ticks();
-    qemu_log("Obtained Gemmini #%d from core %d (cycles: %ld)\n", gm->id, cpu->cpu_index, waitend - waitstart);
+    gm->cmd.funct7 = funct7;
+    gm->cmd.funct3 = funct3;
+    gm->cmd.rs1 = rs1;
+    gm->cmd.rs2 = rs2;
+    gm->has_work = true;
 
-
-    int64_t start = cpu_get_host_ticks();
-    /* Actual Execution happens here (definition at gemmini.c) */
-    gemmini_exec_cmd(gm, funct7, funct3, rs1, rs2, cpu);
-    int64_t end = cpu_get_host_ticks();
-    qemu_log("CPU %d completed Gemmini command (cycles: %ld)\n", 
-             cpu->cpu_index, end - start);
-
-    /* Release the lock after the command execution is complete */
-    gm->busy = false;
-    gm->locked_by_cpu = -1;
-    qemu_mutex_unlock(&gm->gemmini_lock);
+    qemu_cond_signal(&gm->worker_cond);
+    qemu_mutex_unlock(&gm->worker_lock);
 }
