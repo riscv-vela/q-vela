@@ -209,7 +209,8 @@ static inline void ternary_loop_ws(uint8_t A_transpose, uint8_t B_transpose,
 		 | ((a_spad_id & 0x7)<<22); 
     uint64_t rs2 = (A_transpose & 0x1)
                  | ((B_transpose & 0x1) << 1)
-                 | ((is_resadd & 0x1) << 2);
+                 | ((is_resadd & 0x1) << 2)
+                 | (1ULL << 20); // Set ternary flag
 
     __asm__ volatile (
         "mv x10, %0\n"

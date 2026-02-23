@@ -1311,6 +1311,18 @@ void loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
     }
 }
 
+void switch_ternary(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
+    // Checks mpgemm flag of rs2[21:20]
+    const bool is_ternary = (rs2 >> 20) & 1;
+    if (is_ternary) {
+        // if 1, use ternary_loop_ws
+        ternary_loop_ws(gm, rs1, rs2);
+    } else {
+        // else, use conventional loop_ws
+        loop_ws(gm, rs1, rs2);
+    }
+}
+
 void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
     const bool ex_accumulate = rs1 & 1;
     const bool full_C = (rs1 >> 1) & 1;
@@ -1809,7 +1821,7 @@ void gemmini_exec_cmd(GemminiState *s, uint32_t funct7, uint32_t funct3, uint64_
             loop_ws(s, rs1, rs2);
             break;
         case 0b0011110: // ternary_loop_ws (Funct7 not given, so using arbitrary)
-            ternary_loop_ws(s, rs1, rs2);
+            switch_ternary(s, rs1, rs2);
             break;
         case 0b0001001: // loop_ws_config_bounds
             loop_ws_config_bounds(rs1, rs2, s);
