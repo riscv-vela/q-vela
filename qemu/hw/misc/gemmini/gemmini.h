@@ -72,6 +72,7 @@ void compute_gemv(uint64_t a_addr, uint64_t bd_addr, bool preload, GemminiState 
 
 void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2);
 void compute_ternary(uint64_t a_addr, uint64_t bd_addr, bool preload, GemminiState *gm);
+void switch_ternary(GemminiState *gm, uint64_t rs1, uint64_t rs2);
 
 void init_trace(GemminiState *gm);
 void dump_trace(GemminiState *gm);
