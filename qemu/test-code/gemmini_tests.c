@@ -432,32 +432,24 @@ static int run_ternary_square_64(void) {
 
     memset(TS_C_hw, 0, sizeof(TS_C_hw));
 
-    const size_t i_pad = ((I + DIM - 1) / DIM) * DIM;
-    const size_t j_pad = ((J + DIM - 1) / DIM) * DIM;
-    const size_t k_pad = ((K + DIM - 1) / DIM) * DIM;
-
     gemmini_fence();
-    gemmini_extended_config_ex(WS, NO_ACTIVATION, 0, 1, false, false);
-    gemmini_extended_config_st(J * sizeof(elem_t), NO_ACTIVATION, ACC_SCALE_IDENTITY);
-    gemmini_extended3_config_ld(K * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 0);
-    gemmini_extended3_config_ld(TS_J_PACKED * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 1);
-
     ternary_gemm_auto(
-        i_pad / DIM, j_pad / DIM, k_pad / DIM,
-        i_pad - I, j_pad - J, k_pad - K,
-        (elem_t *)TS_A,
-        (elem_t *)TS_B_packed,
+        I, J, K,
+        (const elem_t *)TS_A,
+        (const elem_t *)TS_B_packed,
         NULL,
         (elem_t *)TS_C_hw,
         K,
         J,
         J,
         J,
-        false, false,
-        false, false,
-        false,
+        MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY,
         NO_ACTIVATION,
-        0, 0, 0,
+        ACC_SCALE_IDENTITY,
+        0,
+        false,
+        false,
+        false,
         false
     );
     gemmini_fence();
@@ -508,32 +500,24 @@ static int run_ternary_rect(void) {
 
     memset(TR_C_hw, 0, sizeof(TR_C_hw));
 
-    const size_t i_pad = ((I + DIM - 1) / DIM) * DIM;
-    const size_t j_pad = ((J + DIM - 1) / DIM) * DIM;
-    const size_t k_pad = ((K + DIM - 1) / DIM) * DIM;
-
     gemmini_fence();
-    gemmini_extended_config_ex(WS, NO_ACTIVATION, 0, 1, false, false);
-    gemmini_extended_config_st(J * sizeof(elem_t), NO_ACTIVATION, ACC_SCALE_IDENTITY);
-    gemmini_extended3_config_ld(K * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 0);
-    gemmini_extended3_config_ld(TR_J_PACKED * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 1);
-
     ternary_gemm_auto(
-        i_pad / DIM, j_pad / DIM, k_pad / DIM,
-        i_pad - I, j_pad - J, k_pad - K,
-        (elem_t *)TR_A,
-        (elem_t *)TR_B_packed,
+        I, J, K,
+        (const elem_t *)TR_A,
+        (const elem_t *)TR_B_packed,
         NULL,
         (elem_t *)TR_C_hw,
         K,
         J,
         J,
         J,
-        false, false,
-        false, false,
-        false,
+        MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY,
         NO_ACTIVATION,
-        0, 0, 0,
+        ACC_SCALE_IDENTITY,
+        0,
+        false,
+        false,
+        false,
         false
     );
     gemmini_fence();
@@ -585,32 +569,24 @@ static int run_ternary_rect_random(void) {
 
     memset(TR_C_hw, 0, sizeof(TR_C_hw));
 
-    const size_t i_pad = ((I + DIM - 1) / DIM) * DIM;
-    const size_t j_pad = ((J + DIM - 1) / DIM) * DIM;
-    const size_t k_pad = ((K + DIM - 1) / DIM) * DIM;
-
     gemmini_fence();
-    gemmini_extended_config_ex(WS, NO_ACTIVATION, 0, 1, false, false);
-    gemmini_extended_config_st(J * sizeof(elem_t), NO_ACTIVATION, ACC_SCALE_IDENTITY);
-    gemmini_extended3_config_ld(K * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 0);
-    gemmini_extended3_config_ld(TR_J_PACKED * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 1);
-
     ternary_gemm_auto(
-        i_pad / DIM, j_pad / DIM, k_pad / DIM,
-        i_pad - I, j_pad - J, k_pad - K,
-        (elem_t *)TR_A,
-        (elem_t *)TR_B_packed,
+        I, J, K,
+        (const elem_t *)TR_A,
+        (const elem_t *)TR_B_packed,
         NULL,
         (elem_t *)TR_C_hw,
         K,
         J,
         J,
         J,
-        false, false,
-        false, false,
-        false,
+        MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY,
         NO_ACTIVATION,
-        0, 0, 0,
+        ACC_SCALE_IDENTITY,
+        0,
+        false,
+        false,
+        false,
         false
     );
     gemmini_fence();
@@ -667,33 +643,24 @@ static int run_ternary_rect_random_bias(void) {
 
     memset(TR_C_hw, 0, sizeof(TR_C_hw));
 
-    const size_t i_pad = ((I + DIM - 1) / DIM) * DIM;
-    const size_t j_pad = ((J + DIM - 1) / DIM) * DIM;
-    const size_t k_pad = ((K + DIM - 1) / DIM) * DIM;
-
     gemmini_fence();
-    gemmini_extended_config_ex(WS, NO_ACTIVATION, 0, 1, false, false);
-    gemmini_extended_config_st(J * sizeof(elem_t), NO_ACTIVATION, ACC_SCALE_IDENTITY);
-    gemmini_extended3_config_ld(K * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 0);
-    gemmini_extended3_config_ld(TR_J_PACKED * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 1);
-    gemmini_extended3_config_ld(J * sizeof(acc_t), MVIN_SCALE_IDENTITY, false, 2);
-
     ternary_gemm_auto(
-        i_pad / DIM, j_pad / DIM, k_pad / DIM,
-        i_pad - I, j_pad - J, k_pad - K,
-        (elem_t *)TR_A,
-        (elem_t *)TR_B_packed,
-        (acc_t *)TR_D,
+        I, J, K,
+        (const elem_t *)TR_A,
+        (const elem_t *)TR_B_packed,
+        (const acc_t *)TR_D,
         (elem_t *)TR_C_hw,
         K,
         J,
         J,
         J,
-        false, false,
-        false, false,
-        false,
+        MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY,
         NO_ACTIVATION,
-        0, 0, 0,
+        ACC_SCALE_IDENTITY,
+        0,
+        false,
+        false,
+        false,
         false
     );
     gemmini_fence();
@@ -750,33 +717,24 @@ static int run_ternary_rect_random_bias_row19(void) {
 
     memset(TR19_C_hw, 0, sizeof(TR19_C_hw));
 
-    const size_t i_pad = ((I + DIM - 1) / DIM) * DIM;
-    const size_t j_pad = ((J + DIM - 1) / DIM) * DIM;
-    const size_t k_pad = ((K + DIM - 1) / DIM) * DIM;
-
     gemmini_fence();
-    gemmini_extended_config_ex(WS, NO_ACTIVATION, 0, 1, false, false);
-    gemmini_extended_config_st(J * sizeof(elem_t), NO_ACTIVATION, ACC_SCALE_IDENTITY);
-    gemmini_extended3_config_ld(K * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 0);
-    gemmini_extended3_config_ld(TR19_J_PACKED * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 1);
-    gemmini_extended3_config_ld(J * sizeof(acc_t), MVIN_SCALE_IDENTITY, false, 2);
-
     ternary_gemm_auto(
-        i_pad / DIM, j_pad / DIM, k_pad / DIM,
-        i_pad - I, j_pad - J, k_pad - K,
-        (elem_t *)TR19_A,
-        (elem_t *)TR19_B_packed,
-        (acc_t *)TR19_D,
+        I, J, K,
+        (const elem_t *)TR19_A,
+        (const elem_t *)TR19_B_packed,
+        (const acc_t *)TR19_D,
         (elem_t *)TR19_C_hw,
         K,
         J,
         J,
         J,
-        false, false,
-        false, false,
-        false,
+        MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY,
         NO_ACTIVATION,
-        0, 0, 0,
+        ACC_SCALE_IDENTITY,
+        0,
+        false,
+        false,
+        false,
         false
     );
     gemmini_fence();
@@ -833,33 +791,24 @@ static int run_ternary_rect_random_bias_row19_j72(void) {
 
     memset(TRL_C_hw, 0, sizeof(TRL_C_hw));
 
-    const size_t i_pad = ((I + DIM - 1) / DIM) * DIM;
-    const size_t j_pad = ((J + DIM - 1) / DIM) * DIM;
-    const size_t k_pad = ((K + DIM - 1) / DIM) * DIM;
-
     gemmini_fence();
-    gemmini_extended_config_ex(WS, NO_ACTIVATION, 0, 1, false, false);
-    gemmini_extended_config_st(J * sizeof(elem_t), NO_ACTIVATION, ACC_SCALE_IDENTITY);
-    gemmini_extended3_config_ld(K * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 0);
-    gemmini_extended3_config_ld(TRL_J_PACKED * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 1);
-    gemmini_extended3_config_ld(J * sizeof(acc_t), MVIN_SCALE_IDENTITY, false, 2);
-
     ternary_gemm_auto(
-        i_pad / DIM, j_pad / DIM, k_pad / DIM,
-        i_pad - I, j_pad - J, k_pad - K,
-        (elem_t *)TRL_A,
-        (elem_t *)TRL_B_packed,
-        (acc_t *)TRL_D,
+        I, J, K,
+        (const elem_t *)TRL_A,
+        (const elem_t *)TRL_B_packed,
+        (const acc_t *)TRL_D,
         (elem_t *)TRL_C_hw,
         K,
         J,
         J,
         J,
-        false, false,
-        false, false,
-        false,
+        MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY,
         NO_ACTIVATION,
-        0, 0, 0,
+        ACC_SCALE_IDENTITY,
+        0,
+        false,
+        false,
+        false,
         false
     );
     gemmini_fence();

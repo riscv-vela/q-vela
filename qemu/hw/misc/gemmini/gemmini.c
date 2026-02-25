@@ -697,7 +697,7 @@ void compute(uint64_t a_addr, uint64_t bd_addr, bool preload, GemminiState *gm) 
 
 void compute_gemv(uint64_t a_addr, uint64_t bd_addr, bool preload, GemminiState *gm) {
     uint32_t a_addr_real = (uint32_t)(a_addr & 0xFFFFFFFF);
-    uint32_t bd_addr_real = (uint32_t)(bd_addr & 0xFFFFFFFF);
+    // uint32_t bd_addr_real = (uint32_t)(bd_addr & 0xFFFFFFFF);
     
     const uint16_t a_cols = (a_addr >> addr_len) & 0xFFFF;
     // const uint16_t a_rows = (a_addr >> (addr_len + 16)) & 0xFFFF;
@@ -1313,7 +1313,7 @@ void loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
 
 void switch_ternary(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
     // Checks mpgemm flag of rs2[21:20]
-    const bool is_ternary = (rs2 >> 20) & 1;
+    const bool is_ternary = (rs1 >> 20) & 1;
     if (is_ternary) {
         // if 1, use ternary_loop_ws
         ternary_loop_ws(gm, rs1, rs2);
@@ -1340,7 +1340,8 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
     const uint16_t I = gm->loop_ws_I;
     const uint16_t J = gm->loop_ws_J;
     const uint16_t K = gm->loop_ws_K;
-    const uint16_t J_blocks = (J + 3) / 4;
+    const uint16_t J_blocks = J;
+    const uint16_t J_out = J * 4;
 
     const uint16_t pad_I = gm->loop_ws_pad_I;
     const uint16_t pad_J = gm->loop_ws_pad_J;
@@ -1349,7 +1350,7 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
     const uint32_t GARBAGE_ADDR = ~0;
 
     const int total_spad_rows = (I * K + K * J) * DIM;
-    const int total_acc_rows = (I * J) * DIM;
+    const int total_acc_rows = (I * J_out) * DIM;
     if (total_spad_rows > BANK_NUM * BANK_ROWS / 2 || total_acc_rows > ACC_ROWS / 2){
         printf("LOOP_WS bounds were too large for double-buffering\n");
         exit(1);
@@ -1367,12 +1368,12 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
     /* Checking if Bias exists and load it to accumulator */
     if (gm->loop_ws_D != 0) {
         for (uint16_t i = 0; i < I; i++) {
-            for (uint16_t j = 0; j < J; j++) {
+            for (uint16_t j = 0; j < J_blocks; j++) {
                 const size_t sizeof_D = low_D ? sizeof(elem_t) : sizeof(acc_t);
-
-                const uint64_t dram_addr = gm->loop_ws_D + (i * gm->loop_ws_D_stride + j) * DIM * sizeof_D;
-                const uint64_t sp_addr = D_sp_addr_start + (i*J + j)*DIM;
-                const uint64_t cols = DIM - (j == J-1 ? pad_J : 0);
+                const int16_t j_base = j * 4;
+                const uint64_t dram_addr = gm->loop_ws_D + (i * gm->loop_ws_D_stride + j_base) * DIM * sizeof_D;
+                const uint64_t sp_addr = D_sp_addr_start + (i * J_out + j_base) * DIM;
+                const uint64_t cols = 4 * DIM - (j == J_blocks - 1 ? (pad_J * 4) : 0);
                 const uint64_t rows = DIM - (i == I-1 ? pad_I : 0);
                 qemu_log("MVIN D: dram_addr=0x%lu, sp_addr=0x%lu, rows=%lu, cols=%lu\n", dram_addr, sp_addr, rows, cols);
                 mvin(dram_addr, (rows << 48) | (cols << 32) | sp_addr, 2, gm);
@@ -1384,12 +1385,12 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
         for (uint16_t j = 0; j < J_blocks; j++) {
             for (uint16_t i = 0; i < I; i++) {
                     const uint16_t j_base = j * 4;
-                    const uint16_t tiles_in_block = (J - j_base > 4) ? 4 : (J - j_base);
-                    const uint16_t block_cols = tiles_in_block * DIM - (j == J_blocks - 1 ? pad_J : 0);
+                    //const uint16_t tiles_in_block = (J - j_base > 4) ? 4 : (J - j_base);
+                    const uint16_t block_cols = 4 * DIM - (j == J_blocks - 1 ? (pad_J * 4) : 0);
                     const uint16_t block_packed_cols = (block_cols + 3) / 4;
                     const uint32_t A_sp_addr = a_transpose ? (A_sp_addr_start + (k*I + i)*DIM) :(A_sp_addr_start + (i*K + k)*DIM);
                     const uint32_t B_sp_addr = b_transpose ? (B_sp_addr_start + (j*K + k)*DIM) :(B_sp_addr_start + (k*J_blocks + j)*DIM);
-                    const uint32_t C_sp_addr = C_sp_addr_start + (i*J + j_base)*DIM;
+                    const uint32_t C_sp_addr = C_sp_addr_start + (i*J_out + j_base)*DIM;
                     if (j == 0) {
                         /* MVIN A */
                         uint64_t dram_addr, cols, rows;
@@ -1407,13 +1408,13 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
                         /* MVIN B */
                         int64_t dram_addr, cols, rows;
                         if (b_transpose) {
-                            dram_addr = gm->loop_ws_B + (j*gm->loop_ws_B_stride/4 + k) * DIM * sizeof(elem_t);
+                            dram_addr = gm->loop_ws_B + (j*gm->loop_ws_B_stride + k) * DIM * sizeof(elem_t);
                             // cols = DIM - (k == K-1 ? pad_K : 0);
                             // rows = DIM - (j == J-1 ? pad_J : 0);
                             cols = block_packed_cols;
                             rows = DIM - (k == K-1 ? pad_K : 0);
                         } else {
-                            dram_addr = gm->loop_ws_B + (k*gm->loop_ws_B_stride/4 + j) * DIM * sizeof(elem_t);
+                            dram_addr = gm->loop_ws_B + (k*gm->loop_ws_B_stride + j) * DIM * sizeof(elem_t);
                             cols = block_packed_cols;
                             rows = DIM - (k == K-1 ? pad_K : 0);
                         }
@@ -1482,7 +1483,7 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
                                     const size_t r = row + stat_id;
                                 
                                     for (size_t jj = 0; jj < J; jj++) {
-                                        uint32_t norm_C_sp_addr = C_sp_addr_start + (i*J + jj)*DIM + r;
+                                        uint32_t norm_C_sp_addr = C_sp_addr_start + (i*J_out + (jj * 4))*DIM + r;
                                         if (jj + 1 == J) {
                                             norm_C_sp_addr |= (norm_cmds[cmd][1] << 26); // Final mean/inv-std-dev calculation
                                         } else {
@@ -1491,7 +1492,7 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
                                         const uint64_t C_dram_addr = gm->loop_ws_C +
                                         (i*gm->loop_ws_C_stride + jj) * DIM * sizeof_C +
                                         r * gm->loop_ws_C_stride * sizeof_C;
-                                        const size_t cols = 4 * DIM - (jj + 1 == J ? pad_J : 0);
+                                        const size_t cols = 4 * DIM - (jj + 1 == J ? (pad_J * 4) : 0);
                                         /* MVOUT will be returned without writing(Contributing to norm) if not last row */
                                         mvout(C_dram_addr, ((uint64_t)1 << 48) | (cols << 32) | norm_C_sp_addr, gm);
                                     }
@@ -1818,7 +1819,7 @@ void gemmini_exec_cmd(GemminiState *s, uint32_t funct7, uint32_t funct3, uint64_
             compute(rs1, rs2, 0, s);
             break;
         case 0b0001000: // loop ws
-            loop_ws(s, rs1, rs2);
+            switch_ternary(s, rs1, rs2);
             break;
         case 0b0011110: // ternary_loop_ws (Funct7 not given, so using arbitrary)
             switch_ternary(s, rs1, rs2);
