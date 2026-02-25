@@ -59,7 +59,15 @@ static void *gemmini_worker_thread(void *opaque)
         s->worker_running = true;
         qemu_cond_broadcast(&s->worker_cond);
 
+        #undef qemu_log
+        qemu_log("[EXECUTE START, Gemmini %d] funct7=0x%x rs1=0x%lx rs2=0x%lx\n", s->id, cmd.funct7, cmd.rs1, cmd.rs2);
+        #define qemu_log(...) do {} while (0)
+
         gemmini_exec_cmd(s, cmd.funct7, cmd.funct3, cmd.rs1, cmd.rs2);
+
+        #undef qemu_log
+        qemu_log("[EXECUTE END, Gemmini %d] funct7=0x%x rs1=0x%lx rs2=0x%lx\n", s->id, cmd.funct7, cmd.rs1, cmd.rs2);
+        #define qemu_log(...) do {} while (0)
 
         s->worker_running = false;
         qemu_cond_broadcast(&s->worker_cond);

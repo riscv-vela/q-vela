@@ -7,7 +7,11 @@
 #include "trace.h"
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <assert.h>
+
+#include <time.h>
+
 #include "exec/memory.h"
 #include "exec/address-spaces.h"
 #include "hw/misc/gemmini/gemmini.h"
@@ -17,10 +21,12 @@
 #include "qemu/thread.h"
 
 /* Erase below for Debugging */
-#undef qemu_log
-#define qemu_log(...) do {} while (0)
+// #undef qemu_log
+// #define qemu_log(...) do {} while (0)
 
-GemminiState *riscv_cpu_get_gemmini(CPURISCVState *env);
+typedef enum GemminiPolicy { MODULO, RANDOM } GemminiPolicy;
+
+GemminiState *riscv_cpu_get_gemmini(CPURISCVState *env, GemminiPolicy policy);
 
 /*
  * Returns a pointer to a Gemmini.
@@ -28,13 +34,27 @@ GemminiState *riscv_cpu_get_gemmini(CPURISCVState *env);
  * Prototype for Gemmini cluster.
  * you can Select Gemmini by ID
  */
-GemminiState *riscv_cpu_get_gemmini(CPURISCVState *env) {
+
+GemminiState *riscv_cpu_get_gemmini(CPURISCVState *env, GemminiPolicy policy) {
     CPUState *cpu = env_cpu(env);
-    uint32_t cpu_index = cpu->cpu_index;
-    uint32_t gemmini_count = gemmini_registry_count();
-    GemminiState *gm = gemmini_registry_get(cpu_index % gemmini_count);
-    return gm;
-    //return global_gemmini_state;
+    if(policy == MODULO) {
+        uint32_t cpu_index = cpu->cpu_index;
+        uint32_t gemmini_count = gemmini_registry_count();
+        GemminiState *gm = gemmini_registry_get(cpu_index % gemmini_count);
+        return gm;
+    } else if (policy == RANDOM) {
+        uint32_t gemmini_count = gemmini_registry_count();
+        if (gemmini_count == 0) {
+            qemu_log("No Gemmini devices registered!\n");
+            return NULL;
+        }
+        uint32_t random_id = g_random_int_range(0, gemmini_count);
+        GemminiState *gm = gemmini_registry_get((int)random_id);
+        return gm;
+    } else {
+        qemu_log("Unknown Gemmini selection policy!\n");
+        return NULL;
+    }
 }
 
 /* Callback function for Gemmini memory read, as DMA */
@@ -116,29 +136,38 @@ void helper_rocc_exec(CPURISCVState *env,
                       target_ulong rs1,
                       target_ulong rs2)
 {
-    qemu_log("### helper_rocc_exec funct7=0x%x funct3=0x%x rs1=0x%lx rs2=0x%lx\n",
-             funct7, funct3, rs1, rs2);
+    qemu_log("[HELPER CALL] funct7=0x%x rs1=0x%lx rs2=0x%lx\n",
+             funct7, rs1, rs2);
 
     CPUState *cpu = env_cpu(env);
-    GemminiState *gm = riscv_cpu_get_gemmini(env);
+    GemminiState *gm = riscv_cpu_get_gemmini(env, MODULO);
     if (!gm) {
         qemu_log("### Gemmini not attached (ignoring RoCC)\n");
         return;
     }
 
     qemu_mutex_lock(&gm->worker_lock);
+    qemu_log("[MUTEX LOCKED][Core %d-Gemmini %d] funct7=0x%x rs1=0x%lx rs2=0x%lx\n",
+            cpu->cpu_index, gm->id, funct7, rs1, rs2);
 
     if(funct7 == 0b0111111) { //FENCE
+        qemu_log("[WAITING FENCE][Core %d-Gemmini %d] funct7=0x%x rs1=0x%lx rs2=0x%lx\n",
+            cpu->cpu_index, gm->id, funct7, rs1, rs2);
         while ((gm->has_work || gm->worker_running) && !gm->stopped) {
             qemu_cond_wait(&gm->worker_cond, &gm->worker_lock);
         }
+        qemu_log("[FENCE OPEN][Core %d-Gemmini %d] funct7=0x%x rs1=0x%lx rs2=0x%lx\n",
+            cpu->cpu_index, gm->id, funct7, rs1, rs2);
         qemu_mutex_unlock(&gm->worker_lock);
         return;
     }
-
-    while(gm->has_work && !gm->stopped){
+    qemu_log("[WAITING FOR PRIOR WORK][Core %d-Gemmini %d] funct7=0x%x rs1=0x%lx rs2=0x%lx\n",
+            cpu->cpu_index, gm->id, funct7, rs1, rs2);
+    while((gm->has_work || gm->worker_running) && !gm->stopped){
         qemu_cond_wait(&gm->worker_cond, &gm->worker_lock);
     }
+    qemu_log("[PRIOR WORK DONE][Core %d-Gemmini %d] funct7=0x%x rs1=0x%lx rs2=0x%lx\n",
+            cpu->cpu_index, gm->id, funct7, rs1, rs2);
 
     gm->mem_opaque = env;
     gm->mem_read = gemmini_mem_read_cb;
@@ -149,7 +178,8 @@ void helper_rocc_exec(CPURISCVState *env,
     gm->cmd.rs1 = rs1;
     gm->cmd.rs2 = rs2;
     gm->has_work = true;
-
+    qemu_log("[WORK ENQUEUED][Core %d-Gemmini %d] funct7=0x%x rs1=0x%lx rs2=0x%lx\n",
+            cpu->cpu_index, gm->id, funct7, rs1, rs2);
     qemu_cond_signal(&gm->worker_cond);
     qemu_mutex_unlock(&gm->worker_lock);
 }
