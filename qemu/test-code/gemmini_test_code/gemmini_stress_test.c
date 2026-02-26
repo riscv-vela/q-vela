@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
-#include "rocc_api.h"
+#include "include/gemmini.h"
 
 #define T_I 1
 #define T_K (DIM + 3)
@@ -195,7 +195,7 @@ static int run_gemv_hw(bool use_bias, elem_t *B_hw, uint64_t B_stride, bool tran
     gemmini_extended3_config_ld(B_stride * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 1);
     gemmini_extended3_config_ld(T_J * sizeof(acc_t), MVIN_SCALE_IDENTITY, false, 2);
 
-    gemv_loop_ws(
+    gemmini_gemv_loop_ws(
         IB, JB, KB,
         pad_I, pad_J, pad_K,
         (elem_t *)A,
@@ -214,7 +214,7 @@ static int run_gemv_hw(bool use_bias, elem_t *B_hw, uint64_t B_stride, bool tran
         false           // is_resadd
     );
 
-    gemmini_fence();
+    //gemmini_fence();
     return 0;
 }
 
@@ -437,7 +437,7 @@ static int run_ternary_square_64(void) {
 
     memset(TS_C_hw, 0, sizeof(TS_C_hw));
 
-    gemmini_fence();
+    //gemmini_fence();
     ternary_gemm_auto(
         I, J, K,
         (const elem_t *)TS_A,
@@ -457,7 +457,7 @@ static int run_ternary_square_64(void) {
         false,
         false
     );
-    gemmini_fence();
+    //gemmini_fence();
 
     tg_print_first_last_rows("ternary_square_64",
                              (const elem_t *)TS_C_hw,
@@ -505,7 +505,7 @@ static int run_ternary_rect(void) {
 
     memset(TR_C_hw, 0, sizeof(TR_C_hw));
 
-    gemmini_fence();
+    //gemmini_fence();
     ternary_gemm_auto(
         I, J, K,
         (const elem_t *)TR_A,
@@ -525,7 +525,7 @@ static int run_ternary_rect(void) {
         false,
         false
     );
-    gemmini_fence();
+    //gemmini_fence();
 
     tg_print_first_last_rows("ternary_rect",
                              (const elem_t *)TR_C_hw,
@@ -574,7 +574,7 @@ static int run_ternary_rect_random(void) {
 
     memset(TR_C_hw, 0, sizeof(TR_C_hw));
 
-    gemmini_fence();
+    //gemmini_fence();
     ternary_gemm_auto(
         I, J, K,
         (const elem_t *)TR_A,
@@ -594,7 +594,7 @@ static int run_ternary_rect_random(void) {
         false,
         false
     );
-    gemmini_fence();
+    //gemmini_fence();
 
     tg_print_first_last_rows("ternary_rect_random",
                              (const elem_t *)TR_C_hw,
@@ -648,7 +648,7 @@ static int run_ternary_rect_random_bias(void) {
 
     memset(TR_C_hw, 0, sizeof(TR_C_hw));
 
-    gemmini_fence();
+    //gemmini_fence();
     ternary_gemm_auto(
         I, J, K,
         (const elem_t *)TR_A,
@@ -668,7 +668,7 @@ static int run_ternary_rect_random_bias(void) {
         false,
         false
     );
-    gemmini_fence();
+    //gemmini_fence();
 
     tg_print_first_last_rows("ternary_rect_random_bias",
                              (const elem_t *)TR_C_hw,
@@ -722,7 +722,7 @@ static int run_ternary_rect_random_bias_row19(void) {
 
     memset(TR19_C_hw, 0, sizeof(TR19_C_hw));
 
-    gemmini_fence();
+    //gemmini_fence();
     ternary_gemm_auto(
         I, J, K,
         (const elem_t *)TR19_A,
@@ -742,7 +742,7 @@ static int run_ternary_rect_random_bias_row19(void) {
         false,
         false
     );
-    gemmini_fence();
+    //gemmini_fence();
 
     tg_print_first_last_rows("ternary_rect_random_bias_row19",
                              (const elem_t *)TR19_C_hw,
@@ -796,7 +796,7 @@ static int run_ternary_rect_random_bias_row19_j72(void) {
 
     memset(TRL_C_hw, 0, sizeof(TRL_C_hw));
 
-    gemmini_fence();
+    //gemmini_fence();
     ternary_gemm_auto(
         I, J, K,
         (const elem_t *)TRL_A,
@@ -816,7 +816,7 @@ static int run_ternary_rect_random_bias_row19_j72(void) {
         false,
         false
     );
-    gemmini_fence();
+    //gemmini_fence();
 
     tg_print_first_last_rows("ternary_rect_random_bias_row19_j72",
                              (const elem_t *)TRL_C_hw,
