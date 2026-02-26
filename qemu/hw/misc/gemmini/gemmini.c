@@ -1489,8 +1489,9 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
                                         } else {
                                             norm_C_sp_addr |= (norm_cmds[cmd][0] << 26); // Accumulate sum/variance
                                         }
+                                        const uint64_t jj_base = jj * 4;
                                         const uint64_t C_dram_addr = gm->loop_ws_C +
-                                        (i*gm->loop_ws_C_stride + jj) * DIM * sizeof_C +
+                                        (i*gm->loop_ws_C_stride + jj_base) * DIM * sizeof_C +
                                         r * gm->loop_ws_C_stride * sizeof_C;
                                         const size_t cols = 4 * DIM - (jj + 1 == J ? (pad_J * 4) : 0);
                                         /* MVOUT will be returned without writing(Contributing to norm) if not last row */
