@@ -21,15 +21,6 @@
 #define MAT_DIM_J 64
 #define MAT_DIM_K 64
 
-#define I_PAD (((MAT_DIM_I + DIM - 1) / DIM) * DIM)
-#define K_PAD (((MAT_DIM_K + DIM - 1) / DIM) * DIM)
-#define J_PAD (((MAT_DIM_J + DIM - 1) / DIM) * DIM)
-#define V_PAD (((MAT_DIM_V + DIM - 1) / DIM) * DIM)
-
-#define IB (I_PAD / DIM)
-#define KB (K_PAD / DIM)
-#define JB (J_PAD / DIM)
-
 #define A_STRIDE MAT_DIM_K //number of columns of A
 #define B_STRIDE MAT_DIM_J //number of columns of B
 #define D_STRIDE MAT_DIM_J //number of columns of D
@@ -91,23 +82,14 @@ int main(void){
 
     gemmini_fence();
 
-    const size_t pad_I = I_PAD - MAT_DIM_I;
-	const size_t pad_K = K_PAD - MAT_DIM_K;
-	const size_t pad_J = J_PAD - MAT_DIM_J;
-
-    gemmini_extended_config_ex(WS, ACTIVATION, 0, 1, false, false);
-	gemmini_extended_config_st(MAT_DIM_J * sizeof(elem_t), ACTIVATION, ACC_SCALE_IDENTITY);
-
-	gemmini_extended3_config_ld(MAT_DIM_K * sizeof(elem_t), MVIN_SCALE_IDENTITY,false,0);
-	gemmini_extended3_config_ld(MAT_DIM_J/4 * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 1);					
-	gemmini_extended3_config_ld(MAT_DIM_J * sizeof(elem_t), MVIN_SCALE_IDENTITY, false, 2);
-
-    ternary_gemm_auto(IB, JB, KB, pad_I, pad_J, pad_K,
+    ternary_gemm_auto(MAT_DIM_I, MAT_DIM_J, MAT_DIM_K,
         (elem_t *)full_A, (elem_t *)full_B,
         NO_BIAS ? NULL : (acc_t *)full_D, (elem_t *)full_C,
         A_STRIDE, B_STRIDE,
         D_STRIDE, C_STRIDE,
-        false, false, false, false, false, ACTIVATION, 0, 0, 0, false);
+        MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY, MVIN_SCALE_IDENTITY,
+        ACTIVATION, ACC_SCALE_IDENTITY, 0, REPEATING_BIAS,
+        false, false, false);
     
     gemmini_fence();
 

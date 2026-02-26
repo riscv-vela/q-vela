@@ -30,6 +30,10 @@ GemminiState *riscv_cpu_get_gemmini(CPURISCVState *env) {
     CPUState *cpu = env_cpu(env);
     uint32_t cpu_index = cpu->cpu_index;
     uint32_t gemmini_count = gemmini_registry_count();
+    if (gemmini_count == 0) {
+        qemu_log("### No Gemmini instances available\n");
+        return NULL;
+    }
     GemminiState *gm = gemmini_registry_get(cpu_index % gemmini_count);
     return gm;
     //return global_gemmini_state;

@@ -1,3 +1,8 @@
+/*
+ * Run Various Tests Using Gemmini
+ * Tests the two commands: gemv_loop_ws and ternary_loop_ws, with various parameters and input patterns.
+ */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
