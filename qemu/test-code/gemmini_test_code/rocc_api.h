@@ -262,20 +262,20 @@ static inline void ternary_loop_ws(uint8_t A_transpose, uint8_t B_transpose,
 //                     ex_accumulate, act, a_spad_id, b_spad_id,c_spad_id, is_resadd);
 // }
 
-// static inline void k_gemv_loop_ws_config_bounds(uint16_t I, uint16_t J, uint16_t K,
-//                                         uint16_t pad_I, uint16_t pad_J, uint16_t pad_K) {
-//     uint64_t rs1 = ((uint64_t)pad_K << 32) | ((uint64_t)pad_J << 16) | pad_I;
-//     uint64_t rs2 = ((uint64_t)K << 32) | ((uint64_t)J << 16) | I;
+static inline void k_gemv_loop_ws_config_bounds(uint16_t I, uint16_t J, uint16_t K,
+                                        uint16_t pad_I, uint16_t pad_J, uint16_t pad_K) {
+    uint64_t rs1 = ((uint64_t)pad_K << 32) | ((uint64_t)pad_J << 16) | pad_I;
+    uint64_t rs2 = ((uint64_t)K << 32) | ((uint64_t)J << 16) | I;
 
-//     __asm__ volatile (
-//         "mv x10, %0\n"
-//         "mv x11, %1\n"
-//         ".word 0x30B5307B\n"
-//         :
-//         : "r"(rs1), "r"(rs2)
-//         : "x10", "x11", "memory"  
-//     );
-// }
+    __asm__ volatile (
+        "mv x10, %0\n"
+        "mv x11, %1\n"
+        ".word 0x30B5307B\n"
+        :
+        : "r"(rs1), "r"(rs2)
+        : "x10", "x11", "memory"  
+    );
+}
 
 static inline void k_gemv_loop_ws_addrs_ab(int8_t *A, int8_t *B) {
     uint64_t rs1 = (uintptr_t)A;
@@ -351,7 +351,7 @@ static inline void k_gemv_loop_ws(uint8_t A_transpose, uint8_t B_transpose, uint
     );
 }
 
-static inline void gemv_loop_ws(uint16_t I, uint16_t J, uint16_t K,
+static inline void gemmini_gemv_loop_ws(uint16_t I, uint16_t J, uint16_t K,
                                    uint16_t pad_I, uint16_t pad_J, uint16_t pad_K,
                                    int8_t *A, int8_t *B, acc_t *D, int8_t *C,
                                    uint64_t A_stride, uint64_t B_stride,
