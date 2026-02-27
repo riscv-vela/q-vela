@@ -24,6 +24,8 @@
 아래의 기능들은 부분적으로 지원한다.
 - Syncronization ([Gemmini_fence](#gemmini-fence))
 
+[(***필독!!!***)이곳](#기타-중요한-사실들)에 실행 등에 있어 기타 중요한 정보를 첨부하였습니다.
+
 ## 실행 (Launch)
 
 Gemmini를 포함한 채로 부팅하기 위해 .sh에 gemmini 옵션을 추가해야 한다. 부착 여부와 개수를 결정해야 하며, **id는 gemmini{순번} 으로 설정하여야 한다.** 아래는 부팅 sh파일의 예시이다. [여러 대의 Gemmini를 사용](#n-core-m-gemmini-structure)할 때에 성능 측정 등을 위해 multithreading tcg 옵션 역시 권장된다. 
@@ -198,3 +200,38 @@ WS는 Weight Stationary 모드로 PE가 연산을 할 때에 Weight에 해당하
 OS는 Weight Stationary 모드로 B를 재사용하는 대신 Output이 나가기 전에 모든 연산이 완료되도록 k가 가장 inner loop이며, pe_state에 중간합 결과를 유지한다.
 
 구현을 목표로 한 loop_ws, gemv_loop_ws, ternary_gemm_auto 모두 WS 방식만을 사용하는 연산들이기 때문에, Compute_gemv와 compute_ternary 함수에서 **OS모드가 사용하는 경로는 예외(exit)로 처리**하였다.
+
+## 기타 중요한 사실들
+
+대부분 Development.md에 포함된 내용들이지만 그래도 가장 문제가 많이 생길 것 같은 부분들을 다시 모아두었습니다.
+
+### TestCode는 Gemmini.h(구 rocc_api.h)를 포함해야 실행됩니다!!
+`include/`에 있는 `gemmini.h`는 디렉토리 내의 다른 파일들을 필요로 하며, Gemmini 명령어들을 실행하기 위해서는 해당 헤더가 include 되어 있어야 합니다.
+inlclude파일은 `test-code/gemmini_test_code/`에서 찾을 수 있습니다.
+
+### Gemmini_init_trace와 Gemmini_dump_trace는 rocc_api에만 있습니다!!
+기존 rocc_api.h를 사용할 때에 테스트용으로 포함된 명령어로, 통합된 gemmini.h안에는 구현되지 않은 명령어로 해당 명령어가 포함된 test code 실행 시 implicit declaration오류를 볼 수 있습니다.
+
+### (제일 중요!!!!!) Main branch와 Gemmini_threaded branch는 Gemmini.h가 다릅니다!!!
+순차 실행되는 main과 달리 gemmini_threaded는 gemmini가 개별 쓰레드로 실행되기 때문에 `gemmini_fence`의 구현 방법이 다릅니다!!! 따라서 각 빌드에 따라 맞는 헤더 파일을 사용해야 합니다.
+각각의 헤더파일은 위에서 언급한 `test-code/gemmini_test_code/`아래에 들어 있습니다. (각 브랜치에 각 빌드에 맞는 헤더파일이 들어있습니다.)
+맞지 않는 헤더파일을 사용할경우 illegal instruction이나 segfault를 볼 수 있습니다. (Development.md참고)
+
+### Gemmini_stress_test에서 대부분의 테스트를 진행합니다.
+현재 구현된 gemv_loop_ws, ternary_gemm_auto를 주어진 사용법(Spec의 Test code기반)에 맞추어, 다양한 경우의 테스트를 모두 포함한 파일입니다.
+
+### 큰 차원의 연산을 하면 Spad용량 부족으로 Segfault가 일어날 수 있습니다!!!
+현재 Gemmini의 Spad는 한 bank당 4096 rows만 존재하기 때문에, 큰 차원의 연산을 진행하게 된다면 메모리 용량 부족으로 Segfault가 일어날 수 있습니다.
+이때는 Development.md에 언급된 바와 같이, `gemmini_params.h`(API와 하드웨어 둘다 변경해야 합니다)의 Spad또는 Accumulator의 용량을 늘려서 해결할 수 있습니다.
+
+### Gemmini_threaded의 경우 비동기 메모리 접근에 조심해야 합니다!!!
+Gemmini_threaded branch의 경우 비동기적으로 gemmini가 실행되기 때문에 config과 데이터 이동이 겹치고, 이에 따라 segfault가 일어날 수 있습니다. 따라서 데이터 이동 전후에 gemmini_fence를 이용해 메모리를 잘 보호해 주어야 합니다.
+
+### 용량부족으로 부팅에 실패하는 경우
+원래 4.5기가 정도로 잡혀있던 이미지 사이즈로 인해 용량부족으로 부팅에 실패하였습니다. 현재 6.5기가로 이미지 크기를 확대하였으나, 프로젝트가 계속 커지게 될 경우 이마저도 부족할 수 있으니, image resize등을 통한 확장을 염두에 두어야 합니다.
+
+### Qemu log 마스크는 gemmini_utils.h에도 존재합니다.
+로그 출력 여부는 코드 상단에 qemu_log를 undef하는 부분에 의해 이루어지는데, 단순히 gemmini.c의 코드만 지우면 log가 출력되지 않을 수 있습니다. 이는 gemmini.c가 include하고 있는 gemmini_utils.h에도 log하는 코드가 있어, 해당 코드 역시 주석처리 해야 log가 나타날 것입니다.
+
+### Softmax Activation은 Spike Simulator의 정책을 따릅니다.
+Int8의 elem size를 가지는 Gemmini의 경우 Softmax를 하기 위해 지수연산을 하는 순간 max_elem인 127을 웬만하면 넘어갑니다. 따라서 Spike에서는 Max element를 모든 원소에서 빼는 전처리를 하고 있어 최대값인 원소만 제외하고는 0이 되곤 합니다.
