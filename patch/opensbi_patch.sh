@@ -12,5 +12,6 @@ fi
 
 # 패치 적용
 patch -p1 -f < "$PATCH_DIR/opensbi_reri.patch"
+patch -p1 -f < "$PATCH_DIR/opensbi_tee.patch"
 
 echo "✅ PATCH COMPLETE"

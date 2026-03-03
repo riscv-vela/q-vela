@@ -1,0 +1,2 @@
+/data/hykang/riscv-hy/bin/riscv64-unknown-linux-gnu-ar qc librt_call.a CMakeFiles/rt_call.dir/sbi.c.o CMakeFiles/rt_call.dir/syscall.c.o CMakeFiles/rt_call.dir/linux_wrap.c.o CMakeFiles/rt_call.dir/io_wrap.c.o
+/data/hykang/riscv-hy/bin/riscv64-unknown-linux-gnu-ranlib librt_call.a

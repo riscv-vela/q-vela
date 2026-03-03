@@ -1,0 +1,2 @@
+/data/hykang/riscv-hy/bin/riscv64-unknown-linux-gnu-ar qc librt_util.a CMakeFiles/rt_util.dir/printf.c.o CMakeFiles/rt_util.dir/rt_util.c.o CMakeFiles/rt_util.dir/string.c.o
+/data/hykang/riscv-hy/bin/riscv64-unknown-linux-gnu-ranlib librt_util.a

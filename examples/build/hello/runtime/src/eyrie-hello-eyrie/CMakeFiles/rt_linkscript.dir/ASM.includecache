@@ -1,0 +1,14 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/data/hykang/RVSS/q-vela-ras/examples/build/hello/runtime/src/eyrie-hello-eyrie/runtime.ld.S
+mm/vm_defs.h
+/data/hykang/RVSS/q-vela-ras/examples/build/hello/runtime/src/eyrie-hello-eyrie/mm/vm_defs.h
+
+include/mm/vm_defs.h
+

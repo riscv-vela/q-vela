@@ -1,0 +1,2 @@
+/data/hykang/riscv-hy/bin/riscv64-unknown-linux-gnu-ar qc librt_loader.a CMakeFiles/rt_loader.dir/elf.c.o CMakeFiles/rt_loader.dir/elf32.c.o CMakeFiles/rt_loader.dir/elf64.c.o CMakeFiles/rt_loader.dir/loader.c.o
+/data/hykang/riscv-hy/bin/riscv64-unknown-linux-gnu-ranlib librt_loader.a

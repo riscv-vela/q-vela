@@ -1,0 +1,2 @@
+/data/hykang/riscv-hy/bin/riscv64-unknown-linux-gnu-ar cr librt_tmplib.a CMakeFiles/rt_tmplib.dir/uaccess.S.o
+/data/hykang/riscv-hy/bin/riscv64-unknown-linux-gnu-ranlib librt_tmplib.a

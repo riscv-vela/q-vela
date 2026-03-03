@@ -1,0 +1,41 @@
+[package]
+name = "Security-monitor"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "vela"
+#name = "vyond"
+crate-type = ["staticlib"]
+
+[profile.dev]
+panic = "abort"
+lto = true
+codegen-units = 1
+rpath = true
+opt-level = 'z'
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+rpath = true
+opt-level = 'z'
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+semihosting = { package = "semihosting", path = "./semihosting", default-features = false }
+paste = "1.0"
+volatile-register = "0.2.2"
+bitflags = "2.9.1"
+
+[build-dependencies]
+
+[features]
+semihosting = ["semihosting/jlink-quirks", "semihosting/machine-mode"]
+isolator_pmp = []
+isolator_wg = []
+isolator_hybrid = []
+dbg = []
+default = ["isolator_wg", "semihosting/machine-mode", "dbg"]
