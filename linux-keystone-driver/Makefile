@@ -8,6 +8,10 @@ ifneq ($(KERNELRELEASE),)
 	  keystone-sbi.o
 	obj-m += keystone-driver.o
 
+PWD := $(shell pwd)
+#LINUXSRC := /path/to/linux
+#KEYSTONE_SDK_DIR := /path/to/sdk
+
 ifeq ($(KEYSTONE_SDK_DIR),)
     $(error KEYSTONE_SDK_DIR not defined)
 endif
@@ -15,14 +19,8 @@ endif
 	ccflags-y := -I$(KEYSTONE_SDK_DIR)/include/shared
 else
 
-PWD := $(shell pwd)
-#LINUXSRC := /data/hykang/RVSS/q-vela-ras/linux
-LINUXSRC := /data/hykang/RVSS/riscv-linux
-#LINUXSRC := /data/hykang/RVSS/Vyond/chipyard-1.11.0/software/firemarshal/boards/default/linux
-
 default:
-	$(MAKE) -C $(LINUXSRC) ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- LOCALVERSION=-gea5f6ad9ad96-dirty LOCALVERSION_AUTO=n M=$(PWD)
-#	$(MAKE) -C $(LINUXSRC) ARCH=riscv CROSS_COMPILE=riscv64-unknown-linux-gnu- M=$(PWD)
+	$(MAKE) -C $(LINUXSRC) ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- M=$(PWD)
 
 endif
 
