@@ -59,8 +59,11 @@ truncate -s 32M $WORKSPACE/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_VARS.f
 ```
 - After
 ```shell
+# in sm directory
+cargo build
+
 # in opensbi directory
-make CROSS_COMPILE=riscv64-linux-gnu- PLATFORM_RISCV_XLEN=64 PLATFORM=generic
+make CROSS_COMPILE=riscv64-linux-gnu- PLATFORM_RISCV_XLEN=64 PLATFORM=generic PLATFORM_RISCV_ABI="lp64d"
 ```
 ## How to build linux kernel
 ```shell
