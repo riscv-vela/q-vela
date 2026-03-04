@@ -28,6 +28,7 @@ q-vela-ras/qemu/build/qemu-system-riscv64 \
 -s -accel tcg -m 4096 -smp 2 \
 -serial mon:stdio \
 -d guest_errors -D ./qemu.log \
+-machine virt,wg=on \
 -bios /root/opensbi/build/platform/generic/firmware/fw_dynamic.bin \
 -device virtio-gpu-pci -full-screen \
 -device qemu-xhci \
@@ -39,7 +40,8 @@ q-vela-ras/qemu/build/qemu-system-riscv64 \
 -M virt,pflash0=pflash0,pflash1=pflash1,rpmi=true,reri=true,aia=aplic-imsic \
 -kernel q-vela-ras/linux/arch/riscv/boot/Image \
 -initrd /root/buildroot/output/images/rootfs.cpio \
--append "root=/dev/ram rw console=ttyS0 earlycon=uart8250,mmio,0x10000000"
+-append "root=/dev/ram rw console=ttyS0 earlycon=uart8250,mmio,0x10000000" \
+-semihosting-config enable=on,userspace=on
 ```
 if you successfuly boot,
 ```shell
