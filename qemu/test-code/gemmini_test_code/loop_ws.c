@@ -148,7 +148,7 @@ int main(){
 			/*b_spad_id*/0,
 			/*c_spad_id*/0,
 			/*is_resadd*/false);
-	//gemmini_fence();
+	gemmini_fence();
 	printf("Soft matrix (I - 128) ð J = %d - 128) ð %d):\n", MAT_DIM_I, MAT_DIM_J);
 	print_matrix(&Soft[0][0], MAT_DIM_I, MAT_DIM_J);
 	printf("\n");

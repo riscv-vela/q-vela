@@ -299,8 +299,16 @@ static acc_scale_t_bits acc_scale_t_to_acc_scale_t_bits(acc_scale_t x) {
   ROCC_INSTRUCTION_RS1_RS2(XCUSTOM_ACC, skip, 0, k_FLUSH)
 
 // fence
-#define gemmini_fence() asm volatile("fence")
+// #define gemmini_fence() asm volatile("fence")
 
+// Fence Needs a different implementation for threaded gemminis
+
+static inline void gemmini_fence(void){
+    asm volatile (
+        ".word 0x7EB5307B\n"
+        : : : "memory"
+    );
+}
 
 /* Counter API (Not Implemented) --- IGNORE ---
 
@@ -3686,4 +3694,3 @@ static void global_average_cpu(const elem_t * input, elem_t * output,
 #undef abs
 
 #endif // SRC_MAIN_C_GEMMINI_H
-

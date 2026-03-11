@@ -13,11 +13,11 @@
 #include "exec/address-spaces.h"
 #include "exec/memory.h"
 #include "gemmini_manager.h"
-#include "qemu/thread.h"
+
 
 /* Erase below for Debugging */
-#undef qemu_log
-#define qemu_log(...) do {} while (0)
+// #undef qemu_log
+// #define qemu_log(...) do {} while (0)
 
 /* QOM Initialization for Gemmini */
 
@@ -39,6 +39,45 @@
 //     qemu_log("Gemmini device realized, id=%s\n", dev->id);
 // }
 
+static void *gemmini_worker_thread(void *opaque)
+{
+    GemminiState *s = opaque;
+    while (1) {
+        qemu_mutex_lock(&s->worker_lock);
+
+        while (!s->has_work && !s->stopped) {
+            qemu_cond_wait(&s->worker_cond, &s->worker_lock);
+        }
+
+        if (s->stopped) {
+            qemu_mutex_unlock(&s->worker_lock);
+            break;
+        }
+
+        GemminiCommand cmd = s->cmd;
+        s->has_work = false;
+        s->worker_running = true;
+        qemu_cond_broadcast(&s->worker_cond);
+        qemu_mutex_unlock(&s->worker_lock);   /* Release lock before exec so CPU can enqueue next cmd */
+
+        #undef qemu_log
+        qemu_log("[EXECUTE START, Gemmini %d] funct7=0x%x rs1=0x%lx rs2=0x%lx\n", s->id, cmd.funct7, cmd.rs1, cmd.rs2);
+        #define qemu_log(...) do {} while (0)
+
+        gemmini_exec_cmd(s, cmd.funct7, cmd.funct3, cmd.rs1, cmd.rs2);
+
+        #undef qemu_log
+        qemu_log("[EXECUTE END, Gemmini %d] funct7=0x%x rs1=0x%lx rs2=0x%lx\n", s->id, cmd.funct7, cmd.rs1, cmd.rs2);
+        #define qemu_log(...) do {} while (0)
+
+        qemu_mutex_lock(&s->worker_lock);     /* Re-acquire lock to update worker_running */
+        s->worker_running = false;
+        qemu_cond_broadcast(&s->worker_cond);
+        qemu_mutex_unlock(&s->worker_lock);
+    }
+    return NULL;
+}
+
 static void gemmini_realize(DeviceState *dev, Error **errp)
 {
     GemminiState *s = GEMMINI_DEVICE(dev);
@@ -49,6 +88,16 @@ static void gemmini_realize(DeviceState *dev, Error **errp)
     qemu_mutex_init(&s->gemmini_lock);
     s->busy = false;
 
+    /* Under Construction - Making Gemmini into Independent Thread */
+    //qemu_thread_init(&s->worker);
+    qemu_mutex_init(&s->worker_lock);
+    qemu_cond_init(&s->worker_cond);
+    s->has_work = false;
+    s->stopped = false;
+    s->worker_running = false;
+
+    qemu_thread_create(&s->worker, "gemmini-worker", gemmini_worker_thread, s, QEMU_THREAD_JOINABLE);
+
     memset(s->spad, 0, sizeof(s->spad));
     memset(s->accumulator, 0, sizeof(s->accumulator));
     memset(s->pe_state, 0, sizeof(s->pe_state));
@@ -57,11 +106,27 @@ static void gemmini_realize(DeviceState *dev, Error **errp)
     qemu_log("Gemmini device realized, id=%s\n", dev->id);
 }
 
+static void gemmini_unrealize(DeviceState *dev)
+{
+    GemminiState *s = GEMMINI_DEVICE(dev);
+
+    qemu_mutex_lock(&s->worker_lock);
+    s->stopped = true;
+    qemu_cond_signal(&s->worker_cond);
+    qemu_mutex_unlock(&s->worker_lock);
+
+    qemu_thread_join(&s->worker);
+
+    qemu_mutex_destroy(&s->worker_lock);
+    qemu_cond_destroy(&s->worker_cond);
+}
+
 static void gemmini_class_init(ObjectClass *oc, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(oc);
 
     dc->realize = gemmini_realize;
+    dc->unrealize = gemmini_unrealize;
 }
 
 static const TypeInfo gemmini_info = {
@@ -697,7 +762,7 @@ void compute(uint64_t a_addr, uint64_t bd_addr, bool preload, GemminiState *gm) 
 
 void compute_gemv(uint64_t a_addr, uint64_t bd_addr, bool preload, GemminiState *gm) {
     uint32_t a_addr_real = (uint32_t)(a_addr & 0xFFFFFFFF);
-    // uint32_t bd_addr_real = (uint32_t)(bd_addr & 0xFFFFFFFF);
+    uint32_t bd_addr_real = (uint32_t)(bd_addr & 0xFFFFFFFF);
     
     const uint16_t a_cols = (a_addr >> addr_len) & 0xFFFF;
     // const uint16_t a_rows = (a_addr >> (addr_len + 16)) & 0xFFFF;
@@ -1370,12 +1435,15 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
         for (uint16_t i = 0; i < I; i++) {
             for (uint16_t j = 0; j < J_blocks; j++) {
                 const size_t sizeof_D = low_D ? sizeof(elem_t) : sizeof(acc_t);
-                const int16_t j_base = j * 4;
-                const uint64_t dram_addr = gm->loop_ws_D + (i * gm->loop_ws_D_stride + j_base) * DIM * sizeof_D;
-                const uint64_t sp_addr = D_sp_addr_start + (i * J_out + j_base) * DIM;
+                const uint16_t j_base = j * 4;
                 const uint64_t cols = 4 * DIM - (j == J_blocks - 1 ? (pad_J * 4) : 0);
                 const uint64_t rows = DIM - (i == I-1 ? pad_I : 0);
-                qemu_log("MVIN D: dram_addr=0x%lu, sp_addr=0x%lu, rows=%lu, cols=%lu\n", dram_addr, sp_addr, rows, cols);
+
+                const uint64_t dram_addr = gm->loop_ws_D +
+                    (i * gm->loop_ws_D_stride + j_base) * DIM * sizeof_D;
+                const uint64_t sp_addr = D_sp_addr_start + (i * J_out + j_base) * DIM;
+                qemu_log("MVIN D: dram_addr=0x%lu, sp_addr=0x%lu, rows=%lu, cols=%lu\n",
+                         dram_addr, sp_addr, rows, cols);
                 mvin(dram_addr, (rows << 48) | (cols << 32) | sp_addr, 2, gm);
             }
         }
@@ -1385,7 +1453,6 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
         for (uint16_t j = 0; j < J_blocks; j++) {
             for (uint16_t i = 0; i < I; i++) {
                     const uint16_t j_base = j * 4;
-                    //const uint16_t tiles_in_block = (J - j_base > 4) ? 4 : (J - j_base);
                     const uint16_t block_cols = 4 * DIM - (j == J_blocks - 1 ? (pad_J * 4) : 0);
                     const uint16_t block_packed_cols = (block_cols + 3) / 4;
                     const uint32_t A_sp_addr = a_transpose ? (A_sp_addr_start + (k*I + i)*DIM) :(A_sp_addr_start + (i*K + k)*DIM);
@@ -1489,7 +1556,7 @@ void ternary_loop_ws(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
                                         } else {
                                             norm_C_sp_addr |= (norm_cmds[cmd][0] << 26); // Accumulate sum/variance
                                         }
-                                        const uint64_t jj_base = jj * 4;
+                                        const uint16_t jj_base = jj * 4;
                                         const uint64_t C_dram_addr = gm->loop_ws_C +
                                         (i*gm->loop_ws_C_stride + jj_base) * DIM * sizeof_C +
                                         r * gm->loop_ws_C_stride * sizeof_C;
@@ -1792,8 +1859,35 @@ void dump_trace(GemminiState *gm) {
     qemu_log("------- End of Gemmini #%d Trace Dump -------\n", gm->id);
 }
 
+static void gemmini_heavy_compute_only(GemminiState *s, uint64_t iters)
+{
+    /* Pure ALU workload: no guest memory reads/writes */
+    uint64_t x = 0x9e3779b97f4a7c15ULL ^ (uint64_t)s->id;
+    uint64_t y = 0xbf58476d1ce4e5b9ULL;
+
+    for (uint64_t t = 0; t < iters; t++) {
+        /* xorshift/mix (intentionally heavy scalar math) */
+        x ^= x << 13; x ^= x >> 7;  x ^= x << 17;
+        y += x * 0x94d049bb133111ebULL + (t ^ (x >> 11));
+        x += (y << 9) ^ (y >> 3);
+
+        /* small local matrix-like compute to keep core busy */
+        for (int i = 0; i < DIM; i++) {
+            for (int j = 0; j < DIM; j++) {
+                int32_t v = s->pe_state[i][j];
+                v = (v * 17) + (int32_t)(x & 0x7f) - (int32_t)(y & 0x3f);
+                s->pe_state[i][j] = (elem_t)v;
+            }
+        }
+    }
+
+    /* prevent optimization and expose progress */
+    s->total_reads_in_bytes ^= x;
+    s->total_writes_in_bytes ^= y;
+}
+
 /* Decodes ROCC Instructions and calls the appropriate Gemmini function */
-void gemmini_exec_cmd(GemminiState *s, uint32_t funct7, uint32_t funct3, uint64_t rs1, u_int64_t rs2, CPUState *env)
+void gemmini_exec_cmd(GemminiState *s, uint32_t funct7, uint32_t funct3, uint64_t rs1, u_int64_t rs2)//CPUState *env)
 {
     qemu_log("Gemmini #%d Decoding cmd: funct7=0x%08x funct3=0x%08x rs1=0x%016"PRIx64" rs2=0x%016"PRIx64"\n",
              s->id, funct7, funct3, rs1, rs2);
@@ -1863,6 +1957,9 @@ void gemmini_exec_cmd(GemminiState *s, uint32_t funct7, uint32_t funct3, uint64_
             break;
         case 0b1111111: // dump_trace
             dump_trace(s);
+            break;
+        case 0b0111101: // compute-only heavy workload (no mvin/mvout)
+            gemmini_heavy_compute_only(s, rs1); // rs1 = iteration count
             break;
         default:
             qemu_log("Gemmini #%d: Unknown funct7 0x%08x\n", s->id, funct7);

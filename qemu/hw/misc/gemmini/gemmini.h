@@ -9,6 +9,7 @@
 
 #include "hw/qdev-core.h"
 #include "gemmini_params.h"
+#include "qemu/thread.h"
 #include <math.h>
 
 #define TYPE_GEMMINI_DEVICE "gemmini"
@@ -16,7 +17,7 @@
 OBJECT_DECLARE_SIMPLE_TYPE(GemminiState, GEMMINI_DEVICE)
 
 /* Prototype of Universal RoCC command execution function */
-void gemmini_exec_cmd(GemminiState *s, uint32_t funct7, uint32_t funct3, uint64_t rs1, u_int64_t rs2, CPUState *env);
+void gemmini_exec_cmd(GemminiState *s, uint32_t funct7, uint32_t funct3, uint64_t rs1, u_int64_t rs2);//CPUState *env);
 
 /* Callback Functions for Gemmini memory read and write */
 typedef uint64_t (*gemmini_mem_read_fn)(
@@ -76,8 +77,25 @@ void switch_ternary(GemminiState *gm, uint64_t rs1, uint64_t rs2);
 void init_trace(GemminiState *gm);
 void dump_trace(GemminiState *gm);
 
+typedef struct GemminiCommand {
+    uint32_t funct7;
+    uint32_t funct3;
+    uint64_t rs1;
+    uint64_t rs2;
+} GemminiCommand;
+
 typedef struct GemminiState {
     DeviceState parent;
+
+    /* Under Construction - Making Gemmini into Independent Thread */
+    QemuThread worker;
+    QemuMutex worker_lock;
+    QemuCond worker_cond;
+    GemminiCommand cmd;
+
+    bool has_work;
+    bool stopped;
+    bool worker_running;
 
     /* Features for Manager */
     uint32_t id;

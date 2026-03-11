@@ -1,14 +1,3 @@
-/*
- * This is the Software Interface for QEMU Gemmini.
- * Uses Functions from gemmini.h given by the f-vela team
- * and provides inline assembly functions for RoCC command execution on QEMU RISC-V.
- * To fully use the workload given by the f-vela team, this file must be fully integrated with the given gemmini.h
- * Scope of the current implementation is limited to loop_ws, gemv_loop_ws, and ternary_loop_ws
- * 
- * TODO: implement the rest of the functions in gemmini.h such as covolutions, and add support for OS computations as well.
- * try taking advantage of the spike gemmini simulator c++ code for reference.
- */
-
 #pragma once
 #include <stdint.h>
 #include <stdint.h>
@@ -17,11 +6,6 @@
 #include <stdbool.h>
 #include <math.h>
 
-/* 
- * DIM of f-vela Team is given by 32, but we stick to our gemmini parameters.
- * When changing parameters, make sure to change the parameters in hw/misc/gemmini/gemmini_params.h as well
- * and rebuild qemu for the changes to take effect.
- */ 
 #define DIM 16
 #define ADDR_LEN 32
 #define BANK_NUM 4
@@ -69,7 +53,7 @@ static inline void gemmini_heavy_compute_only(uint64_t iters)
     register uint64_t a0 asm("x10") = iters; // rs1
     register uint64_t a1 asm("x11") = 0;     // rs2
     asm volatile(
-        ".word 0x7ab5307b\n"
+        ".word 0x7ab5307b\n" // funct7=0x3d, rs2=x11, rs1=x10, funct3=3, rd=x0, opcode=0x7b
         :
         : "r"(a0), "r"(a1)
         : "memory");
@@ -77,7 +61,8 @@ static inline void gemmini_heavy_compute_only(uint64_t iters)
 
 static inline void gemmini_fence(void){
     asm volatile (
-        "" : : : "memory"
+        ".word 0x7EB5307B\n"
+        : : : "memory"
     );
 }
 
@@ -366,7 +351,7 @@ static inline void k_gemv_loop_ws(uint8_t A_transpose, uint8_t B_transpose, uint
     );
 }
 
-static inline void gemv_loop_ws(uint16_t I, uint16_t J, uint16_t K,
+static inline void gemmini_gemv_loop_ws(uint16_t I, uint16_t J, uint16_t K,
                                    uint16_t pad_I, uint16_t pad_J, uint16_t pad_K,
                                    int8_t *A, int8_t *B, acc_t *D, int8_t *C,
                                    uint64_t A_stride, uint64_t B_stride,
@@ -823,12 +808,7 @@ static void matmul_cpu(bool transA, bool transB, size_t DIM_I, size_t DIM_J, siz
 
 #undef GEMMINI_SCALE
 
-/* 
- * sp_tiled_matmul_os requires additional mvin mvout functions, which is not implemented. 
- * for now, our coverage of gemmini instructions are limited to WS computations.
- * TODO: implement the extra mvin/mvout extended functions and add support for OS computations as well.
- */
-
+// Tiling functions
 /*
 static void sp_tiled_matmul_os(const elem_t * A, const elem_t * B, const void * D, void * C,
         scale_t A_scale_factor, scale_t B_scale_factor, scale_acc_t D_scale_factor,
