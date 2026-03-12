@@ -108,3 +108,7 @@ static bool trans_gemmini_dump_trace(DisasContext *ctx, arg_r *a) {
 static bool trans_gemmini_init_trace(DisasContext *ctx, arg_r *a) {
     return trans_rocc(ctx, a, 0b1111110, 0b011);
 }
+
+static bool trans_gemmini_flush(DisasContext *ctx, arg_r *a) {
+    return trans_rocc(ctx, a, 0b0000111, 0b011);
+}
