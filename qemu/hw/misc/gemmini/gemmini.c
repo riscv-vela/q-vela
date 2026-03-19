@@ -1961,6 +1961,8 @@ void gemmini_exec_cmd(GemminiState *s, uint32_t funct7, uint32_t funct3, uint64_
         case 0b0111101: // compute-only heavy workload (no mvin/mvout)
             gemmini_heavy_compute_only(s, rs1); // rs1 = iteration count
             break;
+        case 0b0000111: // flush (dummy)
+            break;
         default:
             qemu_log("Gemmini #%d: Unknown funct7 0x%08x\n", s->id, funct7);
             break;

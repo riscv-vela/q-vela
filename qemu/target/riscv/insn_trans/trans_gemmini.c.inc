@@ -116,3 +116,7 @@ static bool trans_gemmini_fence(DisasContext *ctx, arg_r *a) {
 static bool trans_gemmini_heavy(DisasContext *ctx, arg_r *a) {
     return trans_rocc(ctx, a, 0b0111101, 0b011);
 }
+
+static bool trans_gemmini_flush(DisasContext *ctx, arg_r *a) {
+    return trans_rocc(ctx, a, 0b0000111, 0b011);
+}
