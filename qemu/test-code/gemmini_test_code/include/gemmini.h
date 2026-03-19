@@ -310,6 +310,23 @@ static inline void gemmini_fence(void){
     );
 }
 
+/*
+ * gemmini_release() — M:N binding: release current Gemmini without waiting.
+ *
+ * After this call, the next non-fence RoCC instruction from this vCPU will
+ * be dispatched to a new idle Gemmini.  The released Gemmini remains in the
+ * CPU's bitmask and will be drained at the next gemmini_fence().
+ *
+ * Encoding: funct7=0x20 (0b0100000), rs1=rs2=rd=0, funct3=3, opcode=0x7B (custom-3)
+ *   => 0x4000307B
+ */
+static inline void gemmini_release(void){
+    asm volatile (
+        ".word 0x4000307B\n"
+        : : : "memory"
+    );
+}
+
 /* Counter API (Not Implemented) --- IGNORE ---
 
 // Counter access
