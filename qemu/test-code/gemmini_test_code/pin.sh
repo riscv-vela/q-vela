@@ -4,7 +4,7 @@
 #
 # Usage: ./pin_threads.sh [logfile]
 #
-# Default logfile: qemu_thread.log
+# Default logfile: qemu.log
 # Layout:
 #   vCPU  0,1,2,3   → physical cores 0,1,2,3
 #   Worker 0,1,2,3  → physical cores 4,5,6,7
