@@ -299,8 +299,33 @@ static acc_scale_t_bits acc_scale_t_to_acc_scale_t_bits(acc_scale_t x) {
   ROCC_INSTRUCTION_RS1_RS2(XCUSTOM_ACC, skip, 0, k_FLUSH)
 
 // fence
-#define gemmini_fence() asm volatile("fence")
+// #define gemmini_fence() asm volatile("fence")
 
+// Fence Needs a different implementation for threaded gemminis
+
+static inline void gemmini_fence(void){
+    asm volatile (
+        ".word 0x7EB5307B\n"
+        : : : "memory"
+    );
+}
+
+/*
+ * gemmini_release() — M:N binding: release current Gemmini without waiting.
+ *
+ * After this call, the next non-fence RoCC instruction from this vCPU will
+ * be dispatched to a new idle Gemmini.  The released Gemmini remains in the
+ * CPU's bitmask and will be drained at the next gemmini_fence().
+ *
+ * Encoding: funct7=0x20 (0b0100000), rs1=rs2=rd=0, funct3=3, opcode=0x7B (custom-3)
+ *   => 0x4000307B
+ */
+static inline void gemmini_release(void){
+    asm volatile (
+        ".word 0x4000307B\n"
+        : : : "memory"
+    );
+}
 
 /* Counter API (Not Implemented) --- IGNORE ---
 
@@ -3686,4 +3711,3 @@ static void global_average_cpu(const elem_t * input, elem_t * output,
 #undef abs
 
 #endif // SRC_MAIN_C_GEMMINI_H
-
