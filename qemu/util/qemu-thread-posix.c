@@ -510,7 +510,7 @@ static void *qemu_thread_start(void *args)
     void *arg = qemu_thread_args->arg;
     void *r;
 
-    //qemu_log("qemu_thread_start called for %s at TID %ld\n", qemu_thread_args->name, syscall(SYS_gettid));
+    qemu_log("qemu_thread_start called for %s at TID %ld\n", qemu_thread_args->name, syscall(SYS_gettid));
 
     /* Attempt to set the threads name; note that this is for debug, so
      * we're not going to fail if we can't set it.
