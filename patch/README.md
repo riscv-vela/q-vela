@@ -16,7 +16,7 @@ make menuconfig
 ### Need To Enable
 # Target packages -> Networking Application -> iproute2 / openssh
 # Target packages -> Package managers -> opkg
-# Target packages -> Text editors and viewers -> vim
+# Target packages -> Text editors and viewers -> nano
 # Filesystem images -> ext2/3/4 variant - ext4 / exact size - 1g
 # Filesystem images -> cpio the root filesystem (for use initramfs)
 ###
@@ -63,7 +63,7 @@ truncate -s 32M $WORKSPACE/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_VARS.f
 cargo build
 
 # in opensbi directory
-make CROSS_COMPILE=riscv64-linux-gnu- PLATFORM_RISCV_XLEN=64 PLATFORM=generic PLATFORM_RISCV_ABI="lp64d"
+make CROSS_COMPILE=riscv64-linux-gnu- PLATFORM_RISCV_XLEN=64 PLATFORM=generic PLATFORM_RISCV_ABI=lp64d
 ```
 ## How to build linux kernel
 ```shell
