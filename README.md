@@ -8,6 +8,12 @@ apt install -y isal libslirp0 file unzip rsync pip python3-sphinx python3-sphinx
 ninja-build pkg-config libglib2.0-dev gcc-riscv64-linux-gnu vim build-essential bc
 libncurses5-dev bin86 libssl-dev bison flex libelf-dev
 ```
+- for **TEE**
+```shell
+apt install -y rustup cargo
+```
+
+
 ### QEMU build
 ```shell
 ./configure --target-list=riscv64-softmmu --enable-slirp
@@ -23,23 +29,30 @@ If you build dependency, you can find
 - /root/build/kernel/arch/riscv/boot/Image
 
 --- 
+
+BEFORE RUN COMMAND CHECK PATH
+- initrd /path/to/buildroot
+- blockdev /path/to/BUILD (it makes by edk2)
+- bios /path/to/opensbi
+- kernel /path/to/linux
+
 ```shell
 q-vela-ras/qemu/build/qemu-system-riscv64 \
 -s -accel tcg -m 4096 -smp 2 \
 -serial mon:stdio \
 -d guest_errors -D ./qemu.log \
 -machine virt,wg=on \
--bios /root/opensbi/build/platform/generic/firmware/fw_dynamic.bin \
+-bios ./opensbi/build/platform/generic/firmware/fw_dynamic.bin \
 -device virtio-gpu-pci -full-screen \
 -device qemu-xhci \
 -device usb-kbd \
 -netdev user,id=net0,host=10.0.2.10,hostfwd=tcp::221-:22 \
 -device virtio-net-device,netdev=net0 \
--blockdev node-name=pflash0,driver=file,read-only=on,filename=/root/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_CODE.fd \
--blockdev node-name=pflash1,driver=file,filename=/root/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_VARS.fd \
+-blockdev node-name=pflash0,driver=file,read-only=on,filename=./Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_CODE.fd \
+-blockdev node-name=pflash1,driver=file,filename=./Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_VARS.fd \
 -M virt,pflash0=pflash0,pflash1=pflash1,rpmi=true,reri=true,aia=aplic-imsic \
--kernel q-vela-ras/linux/arch/riscv/boot/Image \
--initrd /root/buildroot/output/images/rootfs.cpio \
+-kernel ./linux/arch/riscv/boot/Image \
+-initrd ./buildroot/output/images/rootfs.cpio \
 -append "root=/dev/ram rw console=ttyS0 earlycon=uart8250,mmio,0x10000000" \
 -semihosting-config enable=on,userspace=on
 ```
