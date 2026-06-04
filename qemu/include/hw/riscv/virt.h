@@ -194,8 +194,10 @@ uint32_t imsic_num_bits(uint32_t count);
 extern uint16_t iommu_bdf;
 
 /* WorldGuard */
-#define VIRT_WG_NWORLDS        8 
-#define VIRT_WG_TRUSTEDWID     7
+#define VIRT_WG_NWORLDS        32
+#define VIRT_WG_TRUSTEDWID     31           /* WID 31: SM (trusted world) */
+#define VIRT_WG_OSWID          (VIRT_WG_TRUSTEDWID - 1)  /* WID 30: host OS */
+#define VIRT_WG_DEVWID         (VIRT_WG_TRUSTEDWID - 2)  /* WID 29: dedicated device world */
 #define VIRT_WG_HWBYPASS        true
 #define VIRT_WG_TZCOMPAT        false
 

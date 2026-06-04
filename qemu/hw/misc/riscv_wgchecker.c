@@ -39,7 +39,7 @@ REG32(IMPID,                0x004)
 /* wgChecker */
 REG32(NSLOTS,               0x008)
 REG64(ERRCAUSE,             0x010)
-    FIELD(ERRCAUSE, WID,        0,  8)
+    FIELD(ERRCAUSE, WID,        0,  5)
     FIELD(ERRCAUSE, R,          8,  1)
     FIELD(ERRCAUSE, W,          9,  1)
     FIELD(ERRCAUSE, BE,         62, 1)
