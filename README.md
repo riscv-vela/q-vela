@@ -1,76 +1,56 @@
-# RISC-V Ras-ERI emulation in QEMU
-## How to build
-- git clone --recursive https://github.com/riscv-vela/q-vela-ras 
-- First, Go to [patch/README](patch/README.md)
-- Build dependency
-```shell
-apt install -y isal libslirp0 file unzip rsync pip python3-sphinx python3-sphinx-rtd-theme
-ninja-build pkg-config libglib2.0-dev gcc-riscv64-linux-gnu vim build-essential bc
-libncurses5-dev bin86 libssl-dev bison flex libelf-dev
+# Q-Vela
+
+Q-Vela is a QEMU-based RISC-V virtual emulation platform for validating system software features defined in the [Vela](https://github.com/riscv-vela/vela) project. It extends upstream QEMU with emulation support for three key subsystems:
+
+- **[Gemmini](docs/gemmini.md)** — AI matrix accelerator (RoCC-based, weight-stationary dataflow)
+- **[TEE](docs/tee.md)** — Trusted Execution Environment via WorldGuard memory protection and Keystone enclave framework
+- **[RAS](docs/ras.md)** — Reliability, Availability, and Serviceability via RISC-V Error Record Interface (RERI)
+
+The platform is used for function-level testing of RISC-V system software before validation on the FPGA-based hardware platform (F-Vela).
+
+---
+
+## Repository Structure
+
 ```
-- for **TEE**
-```shell
-apt install -y rustup cargo
-```
-
-
-### QEMU build
-```shell
-./configure --target-list=riscv64-softmmu --enable-slirp
-make -j $(nproc)
-make install -j $(nproc)
-```
-## Quick Start
-If you build dependency, you can find
-- /root/Build/RiscVVirtQemu/REALEASE_GCC5/FV/RISCV_VIRT_CODE.fd
-- /root/Build/RiscVVirtQemu/REALEASE_GCC5/FV/RISCV_VIRT_VARS.fd
-- /root/opensbi/build/platform/generic/firmware
-- /root/buildroot/output/images/rootfs.cpio
-- /root/build/kernel/arch/riscv/boot/Image
-
---- 
-
-BEFORE RUN COMMAND CHECK PATH
-- initrd /path/to/buildroot
-- blockdev /path/to/BUILD (it makes by edk2)
-- bios /path/to/opensbi
-- kernel /path/to/linux
-
-```shell
-q-vela-ras/qemu/build/qemu-system-riscv64 \
--s -accel tcg -m 4096 -smp 2 \
--serial mon:stdio \
--d guest_errors -D ./qemu.log \
--machine virt,wg=on \
--bios ./opensbi/build/platform/generic/firmware/fw_dynamic.bin \
--device virtio-gpu-pci -full-screen \
--device qemu-xhci \
--device usb-kbd \
--netdev user,id=net0,host=10.0.2.10,hostfwd=tcp::221-:22 \
--device virtio-net-device,netdev=net0 \
--blockdev node-name=pflash0,driver=file,read-only=on,filename=./Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_CODE.fd \
--blockdev node-name=pflash1,driver=file,filename=./Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_VARS.fd \
--M virt,pflash0=pflash0,pflash1=pflash1,rpmi=true,reri=true,aia=aplic-imsic \
--kernel ./linux/arch/riscv/boot/Image \
--initrd ./buildroot/output/images/rootfs.cpio \
--append "root=/dev/ram rw console=ttyS0 earlycon=uart8250,mmio,0x10000000" \
--semihosting-config enable=on,userspace=on
-```
-if you successfuly boot,
-```shell
-ssh root@[host_ip] -p 221
+q-vela/
+├── qemu/                      # Modified QEMU source (Gemmini + RERI + WorldGuard)
+│
+├── patch/                     # Patches for firmware and kernel components
+│   ├── opensbi_reri.patch     # OpenSBI: RERI support
+│   ├── opensbi_tee.patch      # OpenSBI: TEE/WorldGuard support
+│   ├── edk2_reri.patch        # EDK2 UEFI: RERI support
+│   ├── kernel_reri.patch      # Linux kernel: RERI support
+│   └── *.sh                   # Patch application scripts
+│
+├── buildroot/                 # Submodule — lightweight root filesystem builder
+├── edk2/                      # Submodule — UEFI firmware
+├── linux/                     # Submodule — Linux kernel
+├── opensbi/                   # Submodule — RISC-V SBI firmware (M-mode bootloader)
+│
+├── reri register generator/   # RERI register specification tool (Excel-based)
+│
+│   # Keystone TEE stack
+├── linux-keystone-driver/     # Linux kernel driver for Keystone host interface
+├── runtime/                   # Enclave-side runtime (runs inside the enclave)
+├── sdk/                       # Host-side SDK for enclave application development
+├── sm/                        # Security Monitor in Rust (runs in M-mode)
+│
+├── docs/                      # Per-subsystem documentation
+│   ├── gemmini.md
+│   ├── tee.md
+│   └── ras.md
+│
+└── examples/                  # Example applications (attestation, ROS, hello)
 ```
 
+---
 
-```shell
-// RERI config register programming
-devmem 0x4010040 32 0x2a1
+## Features by Subsystem
 
-// TLB Error
-devmem 0x4010048 32 0x9001404
-devmem 0x4010044 8 1
-
-// Internal Hart Error
-devmem 0x4010048 32 0xC001702
-devmem 0x4010044 8 1
-```
+| Subsystem | QEMU Implementation | Firmware / Kernel |
+|-----------|---------------------|-------------------|
+| Gemmini | `qemu/hw/misc/gemmini/` | — |
+| RAS (RERI) | `qemu/hw/riscv/riscv_reri_*` | `patch/*_reri.patch` |
+| TEE (WorldGuard) | `qemu/hw/misc/riscv_worldguard.c` | `patch/opensbi_tee.patch` |
+| TEE (Keystone) | — | `sm/`, `runtime/`, `sdk/`, `linux-keystone-driver/` |
