@@ -1,7 +1,10 @@
 # Q-vela Gemmini
 
-> 26.01.02 v1.0 작성
-> 26.07.08 v2.0 내용 반영하여 수정 (multi gemmini 지원, conv 연산 지원 등 업데이트)
+## History
+26.01.02 v1.0 작성
+
+26.07.08 v2.0 작성
+- 최신 개발 내용 반영 (multi gemmini 지원, conv 연산 지원 등 업데이트)
 
 ## Introduction
 
