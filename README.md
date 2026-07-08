@@ -2,11 +2,11 @@
 
 Q-Vela is a QEMU-based RISC-V virtual emulation platform for validating system software features defined in the [Vela](https://github.com/riscv-vela/vela) project. It extends upstream QEMU with emulation support for three key subsystems:
 
-- **[Gemmini](qemu/hw/misc/gemmini/README.md)** — AI matrix accelerator (RoCC-based, weight-stationary dataflow)
+- **[Gemmini](qemu/hw/misc/gemmini/README.md)** — AI matrix-matrix multiplication accelerator
 - **[TEE](docs/tee.md)** — Trusted Execution Environment via WorldGuard memory protection and Keystone enclave framework
 - **[RAS](docs/ras.md)** — Reliability, Availability, and Serviceability via RISC-V Error Record Interface (RERI)
 
-The platform is used for function-level testing of RISC-V system software before validation on the FPGA-based hardware platform (F-Vela).
+The platform is used for function-level testing of RISC-V system software before validation on the FPGA-based hardware platform (i.e., i-vela, f-vela).
 
 ---
 
