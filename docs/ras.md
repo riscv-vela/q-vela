@@ -51,7 +51,7 @@ patch/  →  buildroot  →  sm  →  opensbi  →  linux  →  qemu  →  edk2
 ```
 
 Per-component commands (patch scripts, buildroot menuconfig options, kernel CONFIG checks, edk2 environment):
-[patch/README.md](patch/README.md)
+[patch/README.md](../patch/README.md)
 
 ### 2.3 QEMU
 
