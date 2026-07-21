@@ -19,7 +19,7 @@ RERI MMIO (QEMU)  →  OpenSBI (+ sm)  →  SBI SSE  →  GHES / ACPI APEI  → 
 | `linux/` | Linux kernel with the RERI / APEI path enabled (`RISCV_SBI_SSE`, `ACPI_APEI_GHES`, ...) |
 | `edk2/` | UEFI firmware, produces the pflash images `RISCV_VIRT_CODE.fd` / `RISCV_VIRT_VARS.fd` |
 | `buildroot/` | Guest userland → `rootfs.cpio` (initramfs; contains busybox, including `devmem`) |
-| `patch/` | Patches and apply scripts for the four submodules — **start here**: [patch/README.md](patch/README.md) |
+| `patch/` | Patches and apply scripts for the four submodules — **start here**: [patch/README.md](../patch/README.md) |
 | `reri register generator/` | RERI register map generator (spreadsheet + notes) |
 
 > `runtime/`, `sdk/`, `examples/`, `linux-keystone-driver/` belong to the Keystone **TEE** work — see the TEE README.
