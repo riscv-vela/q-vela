@@ -2,12 +2,12 @@
 
 Q-Vela is a QEMU-based RISC-V virtual emulation platform for validating system software features defined in the [Vela](https://github.com/riscv-vela/vela) project. It extends upstream QEMU with emulation support for three key subsystems:
 
-- **[Gemmini](qemu/hw/misc/gemmini/README.md)** — AI matrix-matrix multiplication accelerator
-- **[Custom ISA](docs/isa.md)** — Custom vector instructions for RoPE, tokenizer acceleration, and PID control
+- **[VelaNPU](qemu/hw/misc/gemmini/README.md)** — Systolic array-based NPU (matrix-matrix multiplication accelerator) with ternary GEMM support
+- **[Custom Vector ISA](docs/isa.md)** — Custom vector instructions for RoPE, tokenizer acceleration, and PID control
 - **[TEE](docs/tee.md)** — Trusted Execution Environment via WorldGuard memory protection and Keystone enclave framework
 - **[RAS](docs/ras.md)** — Reliability, Availability, and Serviceability via RISC-V Error Record Interface (RERI)
 
-The platform is used for function-level testing of RISC-V system software before validation on the FPGA-based hardware platform (i.e., [i-vela](https://github.com/riscv-vela/i-vela), [f-vela](https://github.com/riscv-vela/f-vela)).
+The platform is used for function-level testing of RISC-V system software before validation on the FPGA-based hardware platform (i.e., [i-vela](https://github.com/riscv-vela/i-vela), [f-vela](https://github.com/riscv-vela/f-vela)). In addition, _VelaNPU_ and _Custom Vector ISA_ replicate the functional behavior of the [f-vela](https://github.com/riscv-vela/f-vela)'s NPU/VPU within the QEMU environment, providing equivalent emulation.
 
 ---
 
