@@ -38,7 +38,7 @@ q-vela/
 ├── sm/                        # Security Monitor in Rust (runs in M-mode)
 │
 ├── docs/                      # Per-subsystem documentation
-│   ├── gemmini.md
+│   ├── isa.md
 │   ├── tee.md
 │   └── ras.md
 │
