@@ -15,7 +15,7 @@ The platform is used for function-level testing of RISC-V system software before
 
 ```
 q-vela/
-├── qemu/                      # Modified QEMU source (Gemmini + RERI + WorldGuard)
+├── qemu/                      # Modified QEMU source (VelaNPU + RERI + WorldGuard)
 │
 ├── patch/                     # Patches for firmware and kernel components
 │   ├── opensbi_reri.patch     # OpenSBI: RERI support
@@ -51,7 +51,8 @@ q-vela/
 
 | Subsystem | QEMU Implementation | Firmware / Kernel |
 |-----------|---------------------|-------------------|
-| Gemmini | `qemu/hw/misc/gemmini/` | — |
+| VelaNPU | `qemu/hw/misc/gemmini/` | — |
+| Custom Vector ISA | `qemu/target/riscv` | — |
 | RAS (RERI) | `qemu/hw/riscv/riscv_reri_*` | `patch/*_reri.patch` |
 | TEE (WorldGuard) | `qemu/hw/misc/riscv_worldguard.c` | `patch/opensbi_tee.patch` |
 | TEE (Keystone) | — | `sm/`, `runtime/`, `sdk/`, `linux-keystone-driver/` |
