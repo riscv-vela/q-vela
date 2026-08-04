@@ -1,4 +1,4 @@
-# Q-vela Gemmini
+# VelaNPU
 
 ## History
 26.01.02 v1.0 작성
