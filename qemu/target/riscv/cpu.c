@@ -1071,6 +1071,9 @@ static void riscv_cpu_reset_hold(Object *obj, ResetType type)
     env->mcause = 0;
     env->miclaim = MIP_SGEIP;
     env->pc = env->resetvec;
+    /* Allow S-mode and U-mode to read cycle/time/instret counters */
+    env->mcounteren = COUNTEREN_CY | COUNTEREN_TM | COUNTEREN_IR;
+    env->scounteren = COUNTEREN_CY | COUNTEREN_TM | COUNTEREN_IR;
     env->bins = 0;
     env->two_stage_lookup = false;
 

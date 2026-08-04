@@ -152,10 +152,7 @@ skip_ext_pmu_check:
         }
     }
 
-    if (riscv_has_ext(env, RVS) && env->priv == PRV_U &&
-        !get_field(env->scounteren, ctr_mask)) {
-        return RISCV_EXCP_ILLEGAL_INST;
-    }
+    /* Always allow U-mode access to cycle/time/instret (scounteren check skipped) */
 
 #endif
     return RISCV_EXCP_NONE;
@@ -1366,11 +1363,18 @@ RISCVException riscv_pmu_read_ctr(CPURISCVState *env, target_ulong *val,
     target_ulong ctr_val = upper_half ? counter->mhpmcounterh_val :
                                         counter->mhpmcounter_val;
 
+    /*
+     * Linux sets mcountinhibit.CY=1 by default via SBI PMU, which would make
+     * rdcycle always return 0. Bypass mcountinhibit for the cycle counter (idx=0)
+     * so that rdcycle always returns a meaningful host TSC-based value.
+     */
+    if (ctr_idx == 0) {
+        uint64_t ticks = cpu_get_host_ticks();
+        *val = upper_half ? (target_ulong)(ticks >> 32) : (target_ulong)ticks;
+        return RISCV_EXCP_NONE;
+    }
+
     if (get_field(env->mcountinhibit, BIT(ctr_idx))) {
-        /*
-         * Counter should not increment if inhibit bit is set. Just return the
-         * current counter value.
-         */
          *val = ctr_val;
          return RISCV_EXCP_NONE;
     }
