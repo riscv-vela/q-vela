@@ -258,5 +258,21 @@ void helper_rocc_exec(CPURISCVState *env,
     qemu_log("[WORK ENQUEUED][Core %d-Gemmini %d] funct7=0x%x rs1=0x%lx rs2=0x%lx\n",
              cpu_index, gm->id, funct7, rs1, rs2);
     qemu_cond_signal(&gm->worker_cond);
+
+    /* For commands that access guest DRAM via cpu_memory_rw_debug, block the vCPU
+     * until the worker finishes — otherwise the worker's DRAM read/write races with
+     * vCPU TLB modifications, giving non-deterministic, partially-read operands
+     * (output depends on timing and on residual state from prior workloads).
+     * DRAM-accessing funct7: mvin2=1, mvin=2, mvout=3, mvin3=14(0xe),
+     * loop_conv_ws execute=15(0xf). compute/preload touch only spad/acc, no sync. */
+    if (funct7 == 0x1 || funct7 == 0x2 || funct7 == 0x3 ||
+        funct7 == 0xe || funct7 == 0xF) {
+        while ((gm->has_work || gm->worker_running) && !gm->stopped) {
+            qemu_cond_wait(&gm->worker_cond, &gm->worker_lock);
+        }
+        qemu_log("[SYNC WAIT DONE][Core %d-Gemmini %d] funct7=0x%x\n",
+                 cpu_index, gm->id, funct7);
+    }
+
     qemu_mutex_unlock(&gm->worker_lock);
 }
