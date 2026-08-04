@@ -455,8 +455,11 @@ void mvin(uint64_t dram_addr, uint64_t sp_addr, int state_id, GemminiState *gm)
     );
 
     /* Allocate A Temporary Buffer to Hold One Row from DRAM */
-    /* Crank up elem size if destination is Bias spad (BANK_ROWS * 3) */
-    size_t elem_size = (accumulator && !load_shrunk) || base_row_addr >= BANK_ROWS * 3 ? sizeof(acc_t) : sizeof(elem_t);
+    /* Only accumulator loads carry acc_t (4-byte) data. Scratchpad (spad) is
+     * elem_t regardless of row address — the old `base_row_addr >= BANK_ROWS*3`
+     * heuristic wrongly treated normal elem_t data placed in high spad rows as
+     * acc_t, reading 4x too many DRAM bytes and pulling out-of-bounds garbage. */
+    size_t elem_size = (accumulator && !load_shrunk) ? sizeof(acc_t) : sizeof(elem_t);
     size_t row_bytes = cols * elem_size;
     uint8_t *row_buf = g_malloc(row_bytes);
 
@@ -531,7 +534,7 @@ void mvin(uint64_t dram_addr, uint64_t sp_addr, int state_id, GemminiState *gm)
                     }
                 } else {
                     /* Accumulator = 0, Write to SPAD */
-                    if( base_row_addr >= BANK_ROWS * 3 ){
+                    if( elem_size == sizeof(acc_t) ){
                         acc_t value;
                         memcpy(&value,
                             row_buf + col * elem_size,
