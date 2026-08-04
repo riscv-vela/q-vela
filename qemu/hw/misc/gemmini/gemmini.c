@@ -403,6 +403,204 @@ void k_gemv_loop_ws_strides_dc(uint64_t rs1, uint64_t rs2, GemminiState *gm) {
     qemu_log("RoCC: D stride = %lu, C stride = %lu\n", gm->gemv_loop_ws_D_stride, gm->gemv_loop_ws_C_stride);
 }
 
+/* loop_conv_ws config functions */
+void loop_conv_ws_config1(uint64_t rs1, uint64_t rs2, GemminiState *gm) {
+    gm->lcw_batch_size   = (uint16_t)(rs1 & 0xFFFF);
+    gm->lcw_in_row_dim   = (uint16_t)((rs1 >> 16) & 0xFFFF);
+    gm->lcw_in_channels  = (uint16_t)((rs1 >> 32) & 0xFFFF);
+    gm->lcw_out_channels = (uint16_t)((rs1 >> 48) & 0xFFFF);
+    gm->lcw_out_row_dim      = (uint16_t)(rs2 & 0xFFFF);
+    gm->lcw_pool_out_row_dim = (uint16_t)((rs2 >> 16) & 0xFFFF);
+    gm->lcw_out_col_dim      = (uint16_t)((rs2 >> 32) & 0xFFFF);
+    gm->lcw_stride           = (uint8_t)((rs2 >> 48) & 0xFF);
+    gm->lcw_padding          = (uint8_t)((rs2 >> 56) & 0xFF);
+}
+
+void loop_conv_ws_config2(uint64_t rs1, uint64_t rs2, GemminiState *gm) {
+    gm->lcw_pool_padding     = (uint8_t)(rs1 & 0xFF);
+    gm->lcw_pool_stride      = (uint8_t)((rs1 >> 8) & 0xFF);
+    gm->lcw_pool_size        = (uint16_t)((rs1 >> 16) & 0xFFFF);
+    gm->lcw_pool_out_col_dim = (uint16_t)((rs1 >> 32) & 0xFFFF);
+    gm->lcw_kernel_dim       = (uint16_t)((rs1 >> 48) & 0xFFFF);
+    gm->lcw_pochs   = (uint16_t)(rs2 & 0xFFFF);
+    gm->lcw_pocols  = (uint16_t)((rs2 >> 16) & 0xFFFF);
+    gm->lcw_porows  = (uint16_t)((rs2 >> 32) & 0xFFFF);
+    gm->lcw_batches = (uint16_t)((rs2 >> 48) & 0xFFFF);
+}
+
+void loop_conv_ws_config3(uint64_t rs1, uint64_t rs2, GemminiState *gm) {
+    gm->lcw_lpad  = (uint16_t)(rs1 & 0xFFFF);
+    gm->lcw_kchs  = (uint16_t)((rs1 >> 16) & 0xFFFF);
+    gm->lcw_kcols = (uint16_t)((rs1 >> 32) & 0xFFFF);
+    gm->lcw_krows = (uint16_t)((rs1 >> 48) & 0xFFFF);
+    gm->lcw_in_col_dim = (uint16_t)(rs2 & 0xFFFF);
+    gm->lcw_plpad      = (uint8_t)((rs2 >> 16) & 0xFF);
+    gm->lcw_dpad       = (uint8_t)((rs2 >> 24) & 0xFF);
+    gm->lcw_upad       = (uint16_t)((rs2 >> 32) & 0xFFFF);
+    gm->lcw_rpad       = (uint16_t)((rs2 >> 48) & 0xFFFF);
+}
+
+void loop_conv_ws_config4(uint64_t rs1, uint64_t rs2, GemminiState *gm) {
+    gm->lcw_kernel_dilation = (uint16_t)(rs1 & 0x3FF);
+    gm->lcw_pdpad           = (uint16_t)((rs1 >> 10) & 0x7FF);
+    gm->lcw_pupad           = (uint16_t)((rs1 >> 21) & 0x7FF);
+    gm->lcw_prpad           = (uint16_t)((rs1 >> 32) & 0xFFFF);
+    gm->lcw_orows           = (uint16_t)((rs1 >> 48) & 0xFFFF);
+    gm->lcw_ocols         = (uint16_t)(rs2 & 0xFFFF);
+    gm->lcw_out_stride    = (uint16_t)((rs2 >> 16) & 0xFFFF);
+    gm->lcw_weight_stride = (uint16_t)((rs2 >> 32) & 0xFFFF);
+    gm->lcw_in_stride     = (uint16_t)((rs2 >> 48) & 0xFFFF);
+}
+
+void loop_conv_ws_config5(uint64_t rs1, uint64_t rs2, GemminiState *gm) {
+    gm->lcw_weights = rs1;
+    gm->lcw_output  = rs2;
+}
+
+void loop_conv_ws_config6(uint64_t rs1, uint64_t rs2, GemminiState *gm) {
+    gm->lcw_bias  = rs1;
+    gm->lcw_input = rs2;
+}
+
+static inline int8_t lcw_read_elem(GemminiState *gm, uint64_t addr) {
+    return (int8_t)gm->mem_read(gm->mem_opaque, addr, 1);
+}
+
+static inline int32_t lcw_read_acc(GemminiState *gm, uint64_t addr) {
+    uint32_t v = 0;
+    for (int i = 0; i < 4; i++)
+        v |= (uint32_t)gm->mem_read(gm->mem_opaque, addr + i, 1) << (8 * i);
+    return (int32_t)v;
+}
+
+static inline void lcw_write_elem(GemminiState *gm, uint64_t addr, int8_t val) {
+    gm->mem_write(gm->mem_opaque, addr, (uint64_t)(uint8_t)val, 1);
+}
+
+static int8_t lcw_apply_activation(GemminiState *gm, int32_t acc, uint8_t act) {
+    if (act == RELU) {
+        acc = acc < 0 ? 0 : acc;
+    } else if (act == IGELU || act == LAYERNORM) {
+        /* Route through the same pre-activation as the matmul path (was RELU-only,
+         * silently dropping these). conv doesn't gather norm stats; with the
+         * stats cleared at conv-exec start they are 0, so LAYERNORM yields 0 and
+         * IGELU (needs only igelu_qb/qc=0) yields 0 — matching the reference.
+         * SOFTMAX is intentionally excluded: it needs row-wise sum-exp passes the
+         * conv never runs, and the reference leaves conv output unchanged for it. */
+        gm->acc_act = act;
+        acc = apply_pre_activation_acc(gm, acc);
+    }
+    if (acc > 127)  acc = 127;
+    if (acc < -128) acc = -128;
+    return (int8_t)acc;
+}
+
+void loop_conv_ws_exec(GemminiState *gm, uint64_t rs1, uint64_t rs2) {
+    const bool no_bias           = rs1 & 1;
+    const bool wrot180           = (rs1 >> 1) & 1;
+    const bool trans_weight_1203 = (rs1 >> 3) & 1;
+    const bool trans_weight_0132 = (rs1 >> 4) & 1;
+    const uint8_t act            = (rs2 >> 3) & 0x7;
+    const bool no_pool           = rs2 & 1;
+
+    const int batches    = gm->lcw_batches    ? gm->lcw_batches    : 1;
+    const int orows      = gm->lcw_orows      ? gm->lcw_orows      : gm->lcw_out_row_dim;
+    const int ocols      = gm->lcw_ocols      ? gm->lcw_ocols      : gm->lcw_out_col_dim;
+    const int pochs      = gm->lcw_pochs      ? gm->lcw_pochs      : gm->lcw_out_channels;
+    const int krows      = gm->lcw_krows      ? gm->lcw_krows      : gm->lcw_kernel_dim;
+    const int kcols      = gm->lcw_kcols      ? gm->lcw_kcols      : gm->lcw_kernel_dim;
+    const int kchs       = gm->lcw_kchs       ? gm->lcw_kchs       : gm->lcw_in_channels;
+    const int kd         = gm->lcw_kernel_dilation ? gm->lcw_kernel_dilation : 1;
+    const int stride     = gm->lcw_stride     ? gm->lcw_stride     : 1;
+
+    const int in_row_dim   = gm->lcw_in_row_dim;
+    /* Spike/npu-opt omits in_col_dim (CONFIG_3 rs2=0); fall back to in_row_dim for square inputs */
+    const int in_col_dim   = gm->lcw_in_col_dim ? gm->lcw_in_col_dim : gm->lcw_in_row_dim;
+    const int in_channels  = gm->lcw_in_channels;
+    const int out_channels = gm->lcw_out_channels;
+    const int out_row_dim  = gm->lcw_out_row_dim;
+    const int out_col_dim  = gm->lcw_out_col_dim;
+    const int kernel_dim   = gm->lcw_kernel_dim;
+    const int upad         = gm->lcw_upad;
+    const int lpad         = gm->lcw_lpad;
+
+    const int in_stride     = gm->lcw_in_stride     ? gm->lcw_in_stride     : in_channels;
+    const int weight_stride = gm->lcw_weight_stride ? gm->lcw_weight_stride : out_channels;
+    /* Output is packed NHWC: each (orow,ocol) pixel holds out_channels elements,
+     * so the per-pixel stride must be >= out_channels. npu-opt sometimes encodes
+     * out_stride=1 (placeholder), which would collide channels onto the same
+     * offset; fall back to out_channels in that case. */
+    const int out_stride    = gm->lcw_out_stride >= out_channels
+                              ? gm->lcw_out_stride : out_channels;
+
+    const uint64_t input_base  = gm->lcw_input;
+    const uint64_t weight_base = gm->lcw_weights;
+    const uint64_t bias_base   = gm->lcw_bias;
+    const uint64_t output_base = gm->lcw_output;
+
+    qemu_log("LOOP_CONV_WS: batches=%d orows=%d ocols=%d pochs=%d krows=%d kcols=%d kchs=%d stride=%d upad=%d lpad=%d\n",
+             batches, orows, ocols, pochs, krows, kcols, kchs, stride, upad, lpad);
+    qemu_log("  in=%lx wt=%lx bias=%lx out=%lx in_stride=%d w_stride=%d out_stride=%d\n",
+             input_base, weight_base, bias_base, output_base, in_stride, weight_stride, out_stride);
+
+    for (int b = 0; b < batches; b++) {
+        for (int orow = 0; orow < orows; orow++) {
+            for (int ocol = 0; ocol < ocols; ocol++) {
+                for (int och = 0; och < pochs; och++) {
+                    int32_t acc = 0;
+                    if (!no_bias && bias_base) {
+                        acc = lcw_read_acc(gm, bias_base + (uint64_t)och * sizeof(acc_t));
+                    }
+
+                    for (int kr = 0; kr < krows; kr++) {
+                        const int kr_ = wrot180 ? krows - 1 - kr : kr;
+                        const int irow = orow * stride + kr * kd - upad;
+
+                        for (int kc = 0; kc < kcols; kc++) {
+                            const int kc_ = wrot180 ? kcols - 1 - kc : kc;
+                            const int icol = ocol * stride + kc * kd - lpad;
+
+                            if (irow < 0 || irow >= in_row_dim || icol < 0 || icol >= in_col_dim)
+                                continue;
+
+                            for (int kch = 0; kch < kchs; kch++) {
+                                uint64_t in_off = (uint64_t)((b * in_row_dim * in_col_dim +
+                                                               irow * in_col_dim + icol) * in_stride + kch);
+                                int8_t ipixel = lcw_read_elem(gm, input_base + in_off * sizeof(elem_t));
+
+                                uint64_t w_off;
+                                if (trans_weight_1203) {
+                                    w_off = (uint64_t)(kch * kernel_dim * kernel_dim +
+                                                       kr_ * kernel_dim + kc_) * out_channels + och;
+                                } else if (trans_weight_0132) {
+                                    w_off = (uint64_t)(kr_ * kernel_dim * out_channels +
+                                                       kc_ * out_channels + och) * in_channels + kch;
+                                } else {
+                                    w_off = (uint64_t)(kr_ * kernel_dim * in_channels +
+                                                       kc_ * in_channels + kch) * weight_stride + och;
+                                }
+                                int8_t wpixel = lcw_read_elem(gm, weight_base + w_off * sizeof(elem_t));
+
+                                acc += (int32_t)ipixel * (int32_t)wpixel;
+                            }
+                        }
+                    }
+
+                    if (output_base) {
+                        /* Use orows/ocols (from CONFIG_4) as stride — out_col_dim from CONFIG_1
+                         * may be mis-encoded by npu-opt (different field layout). For single-call
+                         * loop_conv_ws, orows==out_row_dim and ocols==out_col_dim always. */
+                        uint64_t out_off = (uint64_t)((b * orows * ocols +
+                                                        orow * ocols + ocol) * out_stride + och);
+                        int8_t result = lcw_apply_activation(gm, acc, act);
+                        lcw_write_elem(gm, output_base + out_off * sizeof(elem_t), result);
+                    }
+                }
+            }
+        }
+    }
+}
+
 /* Set Gemmini States(Addr, Rows, Cols) before Compute */
 void preload(uint64_t bd_addr, uint64_t c_addr, GemminiState *gm) {
     gm->preload_sp_addr = (uint32_t)(bd_addr & 0xFFFFFFFF);
@@ -449,6 +647,7 @@ void mvin(uint64_t dram_addr, uint64_t sp_addr, int state_id, GemminiState *gm)
     );
 
     /* Allocate A Temporary Buffer to Hold One Row from DRAM */
+    /* Crank up elem size if destination is Bias spad (BANK_ROWS * 3) */
     /* Only accumulator loads carry acc_t (4-byte) data. Scratchpad (spad) is
      * elem_t regardless of row address — the old `base_row_addr >= BANK_ROWS*3`
      * heuristic wrongly treated normal elem_t data placed in high spad rows as
@@ -1967,7 +2166,29 @@ void gemmini_exec_cmd(GemminiState *s, uint32_t funct7, uint32_t funct3, uint64_
         case 0b0111101: // compute-only heavy workload (no mvin/mvout)
             gemmini_heavy_compute_only(s, rs1); // rs1 = iteration count
             break;
-        case 0b0000111: // flush (dummy)
+        case 0b0000111: // flush
+            qemu_log("Gemmini #%d: flush (no-op)\n", s->id);
+            break;
+        case 0b0001111: // loop_conv_ws execute
+            loop_conv_ws_exec(s, rs1, rs2);
+            break;
+        case 0b0010000: // loop_conv_ws_config1
+            loop_conv_ws_config1(rs1, rs2, s);
+            break;
+        case 0b0010001: // loop_conv_ws_config2
+            loop_conv_ws_config2(rs1, rs2, s);
+            break;
+        case 0b0010010: // loop_conv_ws_config3
+            loop_conv_ws_config3(rs1, rs2, s);
+            break;
+        case 0b0010011: // loop_conv_ws_config4
+            loop_conv_ws_config4(rs1, rs2, s);
+            break;
+        case 0b0010100: // loop_conv_ws_config5
+            loop_conv_ws_config5(rs1, rs2, s);
+            break;
+        case 0b0010101: // loop_conv_ws_config6
+            loop_conv_ws_config6(rs1, rs2, s);
             break;
         default:
             qemu_log("Gemmini #%d: Unknown funct7 0x%08x\n", s->id, funct7);

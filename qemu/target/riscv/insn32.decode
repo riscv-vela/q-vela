@@ -1123,3 +1123,10 @@ gemmini_init_trace              1111110 ..... ..... 011 ..... 1111011 @r
 gemmini_flush                   0000111 ..... ..... 011 ..... 1111011 @r
 gemmini_fence                   0111111 ..... ..... 011 ..... 1111011 @r
 gemmini_heavy                   0111101 ..... ..... 011 ..... 1111011 @r
+gemmini_loop_conv_ws            0001111 ..... ..... 011 ..... 1111011 @r
+gemmini_loop_conv_ws_config1    0010000 ..... ..... 011 ..... 1111011 @r
+gemmini_loop_conv_ws_config2    0010001 ..... ..... 011 ..... 1111011 @r
+gemmini_loop_conv_ws_config3    0010010 ..... ..... 011 ..... 1111011 @r
+gemmini_loop_conv_ws_config4    0010011 ..... ..... 011 ..... 1111011 @r
+gemmini_loop_conv_ws_config5    0010100 ..... ..... 011 ..... 1111011 @r
+gemmini_loop_conv_ws_config6    0010101 ..... ..... 011 ..... 1111011 @r

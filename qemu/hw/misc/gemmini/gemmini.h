@@ -176,6 +176,23 @@ typedef struct GemminiState {
     uint64_t gemv_loop_ws_A, gemv_loop_ws_B, gemv_loop_ws_D, gemv_loop_ws_C;
     uint64_t gemv_loop_ws_A_stride, gemv_loop_ws_B_stride, gemv_loop_ws_D_stride, gemv_loop_ws_C_stride;
 
+    /* loop_conv_ws config state */
+    uint16_t lcw_batch_size, lcw_in_row_dim, lcw_in_channels, lcw_out_channels;
+    uint16_t lcw_out_row_dim, lcw_out_col_dim, lcw_pool_out_row_dim;
+    uint8_t  lcw_stride, lcw_padding;
+    uint16_t lcw_kernel_dim, lcw_pool_out_col_dim, lcw_pool_size;
+    uint8_t  lcw_pool_stride, lcw_pool_padding;
+    uint16_t lcw_batches, lcw_porows, lcw_pocols, lcw_pochs;
+    uint16_t lcw_krows, lcw_kcols, lcw_kchs;
+    uint16_t lcw_lpad, lcw_rpad, lcw_upad;
+    uint8_t  lcw_dpad, lcw_plpad;
+    uint16_t lcw_in_col_dim;
+    uint16_t lcw_orows, lcw_prpad, lcw_ocols;
+    uint16_t lcw_pupad, lcw_pdpad;
+    uint16_t lcw_kernel_dilation;
+    uint16_t lcw_in_stride, lcw_weight_stride, lcw_out_stride;
+    uint64_t lcw_weights, lcw_output, lcw_bias, lcw_input;
+
     /* Memory Callbacks */
     void *mem_opaque;
     gemmini_mem_read_fn  mem_read;
