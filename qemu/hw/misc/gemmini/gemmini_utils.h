@@ -137,13 +137,19 @@ acc_t apply_pre_activation_acc(GemminiState *gm, acc_t value) {
   } else if (gm->acc_act == LAYERNORM) {
     const uint8_t stat_id = gm->norm_stat_id;
     const acc_t norm_mean = gm->norm_mean[stat_id];
-    const acc_t  norm_inv_stddev = gm->norm_inv_stddev[stat_id];
+    /* norm_inv_stddev is a fractional scale (1/stddev, e.g. 0.5); reading it into
+     * an integer acc_t truncated fractions to 0, zeroing rows whose stddev > 1.
+     * Must be acc_scale_t (float), matching the field type. */
+    const acc_scale_t norm_inv_stddev = gm->norm_inv_stddev[stat_id];
     return (value - norm_mean) * norm_inv_stddev;
   } else if (gm->acc_act == SOFTMAX) {
     qemu_log("SOFTMAX pre-activation value: %d\n", value);
     const uint8_t stat_id = gm->norm_stat_id;
     const acc_t norm_max = gm->norm_max[stat_id];
-    const acc_t norm_inv_sum_exp = gm->norm_inv_sum_exp[stat_id];
+    /* norm_inv_sum_exp is a fractional scale (127.0/sum, ~0.025); reading it into
+     * an integer acc_t truncated it to 0, zeroing every softmax output. Must be
+     * acc_scale_t (float), matching the field type and acc_scale()'s scale arg. */
+    const acc_scale_t norm_inv_sum_exp = gm->norm_inv_sum_exp[stat_id];
     qemu_log("value : %d, norm_max : %d, igelu_qb : %d, igelu_qc : %d, qln2 : %d, qln2_inv : %d\n", value,norm_max,gm->igelu_qb, gm->igelu_qc, gm->qln2,gm->qln2_inv);
     qemu_log("apply_iexp : %d, scale with %d\n",apply_iexp(value - norm_max, gm->igelu_qb, gm->igelu_qc, gm->qln2, gm->qln2_inv), norm_inv_sum_exp);
     return acc_scale(apply_iexp(value - norm_max, gm->igelu_qb, gm->igelu_qc,
