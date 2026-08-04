@@ -60,15 +60,9 @@ static void *gemmini_worker_thread(void *opaque)
         qemu_cond_broadcast(&s->worker_cond);
         qemu_mutex_unlock(&s->worker_lock);   /* Release lock before exec so CPU can enqueue next cmd */
 
-        #undef qemu_log
         qemu_log("[EXECUTE START, Gemmini %d] funct7=0x%x rs1=0x%lx rs2=0x%lx\n", s->id, cmd.funct7, cmd.rs1, cmd.rs2);
-        #define qemu_log(...) do {} while (0)
-
         gemmini_exec_cmd(s, cmd.funct7, cmd.funct3, cmd.rs1, cmd.rs2);
-
-        #undef qemu_log
         qemu_log("[EXECUTE END, Gemmini %d] funct7=0x%x rs1=0x%lx rs2=0x%lx\n", s->id, cmd.funct7, cmd.rs1, cmd.rs2);
-        #define qemu_log(...) do {} while (0)
 
         qemu_mutex_lock(&s->worker_lock);     /* Re-acquire lock to update worker_running */
         s->worker_running = false;
