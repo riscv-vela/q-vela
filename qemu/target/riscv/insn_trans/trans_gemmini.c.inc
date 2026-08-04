@@ -80,7 +80,7 @@ static bool trans_gemmini_mvin(DisasContext *ctx, arg_r *a) {
 }
 
 static bool trans_gemmini_mvin3(DisasContext *ctx, arg_r *a) {
-    return trans_rocc(ctx, a, 0b0000010, 0b011);
+    return trans_rocc(ctx, a, 0b0001110, 0b011);
 }
 
 static bool trans_gemmini_mvout(DisasContext *ctx, arg_r *a) {
@@ -88,15 +88,15 @@ static bool trans_gemmini_mvout(DisasContext *ctx, arg_r *a) {
 }
 
 static bool trans_gemmini_preload(DisasContext *ctx, arg_r *a) {
-    return trans_rocc(ctx, a, 0b0000100, 0b011);
+    return trans_rocc(ctx, a, 0b0000110, 0b011);
 }
 
 static bool trans_gemmini_compute_preloaded(DisasContext *ctx, arg_r *a) {
-    return trans_rocc(ctx, a, 0b0000101, 0b011);
+    return trans_rocc(ctx, a, 0b0000100, 0b011);
 }
 
 static bool trans_gemmini_compute_accumulate(DisasContext *ctx, arg_r *a) {
-    return trans_rocc(ctx, a, 0b0000110, 0b011);
+    return trans_rocc(ctx, a, 0b0000101, 0b011);
 }
 
 static bool trans_ternary_loop_ws(DisasContext *ctx, arg_r *a) {

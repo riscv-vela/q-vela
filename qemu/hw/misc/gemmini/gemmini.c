@@ -1904,8 +1904,14 @@ void gemmini_exec_cmd(GemminiState *s, uint32_t funct7, uint32_t funct3, uint64_
          * Instead, they are called inside higher level functions like loop_ws
          * So the cases below are just placeholders
          */
-        case 0b0000010: // MVIN
+        case 0b0000001: // MVIN2 (load pipeline state 1) — was dropped, zeroing operands
+            mvin(rs1, rs2, 1, s);
+            break;
+        case 0b0000010: // MVIN (load pipeline state 0)
             mvin(rs1, rs2, 0, s);
+            break;
+        case 0b0001110: // MVIN3 (load pipeline state 2)
+            mvin(rs1, rs2, 2, s);
             break;
         case 0b0000011: // MVOUT
             mvout(rs1, rs2, s);
@@ -1915,6 +1921,9 @@ void gemmini_exec_cmd(GemminiState *s, uint32_t funct7, uint32_t funct3, uint64_
             break;
         case 0b0000101: // Compute Accumulate
             compute(rs1, rs2, 0, s);
+            break;
+        case 0b0000110: // PRELOAD (sets output/preload scratchpad addr + dims)
+            preload(rs1, rs2, s);
             break;
         case 0b0001000: // loop ws
             switch_ternary(s, rs1, rs2);
