@@ -55,3 +55,11 @@ q-vela/
 | RAS (RERI) | `qemu/hw/riscv/riscv_reri_*` | `patch/*_reri.patch` |
 | TEE (WorldGuard) | `qemu/hw/misc/riscv_worldguard.c` | `patch/opensbi_tee.patch` |
 | TEE (Keystone) | — | `sm/`, `runtime/`, `sdk/`, `linux-keystone-driver/` |
+
+### Getting Started
+
+```bash
+git clone https://github.com/riscv-vela/q-vela.git
+cd q-vela && ./configure --target-list=riscv64-softmmu && make -j$(nproc)
+```
+
