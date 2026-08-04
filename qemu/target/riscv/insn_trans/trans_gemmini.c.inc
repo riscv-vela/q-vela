@@ -7,12 +7,14 @@ static bool trans_rocc(DisasContext *ctx, arg_r *a, uint32_t funct7, uint32_t fu
     tcg_gen_movi_i32(funct7_v, funct7);
     TCGv_i32 funct3_v = tcg_temp_new_i32();
     tcg_gen_movi_i32(funct3_v, funct3);
+    TCGv rs1 = get_gpr(ctx, a->rs1, EXT_NONE);
+    TCGv rs2 = get_gpr(ctx, a->rs2, EXT_NONE);
     gen_helper_rocc_exec(
         tcg_env,
         funct7_v,
         funct3_v,
-        cpu_gpr[a->rs1],
-        cpu_gpr[a->rs2]
+        rs1,
+        rs2
     );
     return true;
 }
