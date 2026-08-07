@@ -1,2 +1,0 @@
-/data/hykang/riscv-hy/bin/riscv64-unknown-linux-gnu-ar qc librt_crypto.a CMakeFiles/rt_crypto.dir/__/util/empty.c.o
-/data/hykang/riscv-hy/bin/riscv64-unknown-linux-gnu-ranlib librt_crypto.a

@@ -1,8 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/data/hykang/RVSS/q-vela-ras/examples/build/cmake_install.cmake",
-		"/data/hykang/RVSS/q-vela-ras/examples/build/hello/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
