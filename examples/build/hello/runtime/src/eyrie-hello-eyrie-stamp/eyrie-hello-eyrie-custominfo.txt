@@ -1,9 +1,0 @@
-# This is a generated file and its contents are an internal implementation detail.
-# The download step will be re-executed if anything in this file changes.
-# No other meaning or use of this file is supported.
-
-method=custom
-command=rm;-rf;/data/hykang/RVSS/q-vela-ras/examples/build/hello/runtime/src/eyrie-hello-eyrie;&&;cp;-ar;/data/hykang/RVSS/q-vela-ras/runtime;/data/hykang/RVSS/q-vela-ras/examples/build/hello/runtime/src/eyrie-hello-eyrie
-source_dir=/data/hykang/RVSS/q-vela-ras/examples/build/hello/runtime/src/eyrie-hello-eyrie
-work_dir=/data/hykang/RVSS/q-vela-ras/examples/build/hello/runtime/src
-
