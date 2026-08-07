@@ -31,18 +31,10 @@ q-vela/
 │
 ├── reri register generator/   # RERI register specification tool (Excel-based)
 │
-│   # Keystone TEE stack
-├── linux-keystone-driver/     # Linux kernel driver for Keystone host interface
-├── runtime/                   # Enclave-side runtime (runs inside the enclave)
-├── sdk/                       # Host-side SDK for enclave application development
-├── sm/                        # Security Monitor in Rust (runs in M-mode)
-│
-├── docs/                      # Per-subsystem documentation
-│   ├── isa.md
-│   ├── tee.md
-│   └── ras.md
-│
-└── examples/                  # Example applications (attestation, ROS, hello)
+└── docs/                      # Per-subsystem documentation
+    ├── isa.md
+    ├── tee.md
+    └── ras.md
 ```
 
 ---
@@ -117,36 +109,12 @@ Verify the build:
 ### Build Firmware (vela-fws)
 
 The firmware components (OpenSBI, EDK2) are maintained in the separate
-**[vela-fws](https://github.com/riscv-vela/vela-fws) repository**, where the
-Vela patches (`patch/*.patch` of this repository) are **already applied** — no
-manual patching is required.
+**[vela-fws](https://github.com/riscv-vela/vela-fws) repository**.
 
-The patched OpenSBI links the Rust Security Monitor (`sm/`, built as
-`libvela.a`), so **`sm` must be built before OpenSBI**:
+### Build Kernel (vela-linux)
 
-```bash
-git clone https://github.com/riscv-vela/vela-fws.git
-
-# 1) Security Monitor (rustup picks up the pinned nightly toolchain automatically)
-cd vela-fws/sm
-cargo build          # → sm/target/riscv64gc-unknown-linux-gnu/debug/libvela.a
-
-# 2) OpenSBI
-cd ../opensbi
-make PLATFORM=generic CROSS_COMPILE=riscv64-linux-gnu- -j$(nproc)
-cd ../..
-```
-
-This produces the firmware images under
-`vela-fws/opensbi/build/platform/generic/firmware/`, of which the launch script
-below uses:
-
-| File | Description |
-|------|-------------|
-| `fw_jump.bin` | OpenSBI firmware (M-mode bootloader) that jumps to the next boot stage (U-Boot) |
-
-> EDK2 (UEFI firmware, `RISCV_VIRT_CODE.fd` / `RISCV_VIRT_VARS.fd`) is only
-> needed for the UEFI-based RAS flow — see [docs/ras.md](docs/ras.md).
+The Linux kernel and the Keystone kernel driver are maintained in the separate
+**[vela-linux](https://github.com/riscv-vela/vela-linux) repository**.
 
 ### Prepare a Guest Image
 
@@ -173,11 +141,13 @@ Save the following as `run.sh` in the repository root and execute it:
 ```bash
 #!/bin/bash
 ./qemu/build/qemu-system-riscv64 \
-    -machine virt -nographic -m 16384 -smp 4 \
+    -machine virt,wg=on -nographic -m 16384 -smp 4 \
     -bios ./vela-fws/opensbi/build/platform/generic/firmware/fw_jump.bin \
-    -kernel /usr/lib/u-boot/qemu-riscv64_smode/uboot.elf \
+    -kernel ./vela-linux/linux/arch/riscv/boot/Image \
+    -append "root=/dev/vda1 rw console=ttyS0 earlycon=sbi" \
     -cpu rv64,v=true,vlen=512,vext_spec=v1.0,zba=true,zbb=true,zbs=true,zbc=true,zbkb=true,zcb=true,zicond=true \
     -accel tcg,thread=multi \
+    -semihosting-config enable=on,target=native,userspace=on \
     -netdev user,id=eth0,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=eth0 \
     -device virtio-rng-pci \
     -drive file=./vela/ubuntu-noble-riscv64.img,format=raw,if=virtio \
