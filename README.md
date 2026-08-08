@@ -1,6 +1,6 @@
 # Q-Vela
 
-Q-Vela is a QEMU-based RISC-V virtual emulation platform for validating system software features defined in the [Vela](https://github.com/riscv-vela/vela) project. It extends upstream QEMU with emulation support for three key subsystems:
+Q-Vela is a QEMU-based RISC-V virtual emulation platform for validating system software features defined in the [riscv-vela](https://github.com/riscv-vela/) project. It extends upstream QEMU with emulation support for three key subsystems:
 
 - **[VelaNPU](qemu/hw/misc/gemmini/README.md)** — Systolic array-based NPU (matrix-matrix multiplication accelerator) with ternary GEMM support
 - **[Custom Vector ISA](docs/isa.md)** — Custom vector instructions for RoPE, tokenizer acceleration, and PID control
