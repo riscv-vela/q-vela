@@ -60,7 +60,7 @@ The following packages are required to build and run QEMU (Ubuntu/Debian):
 ```bash
 # Build dependencies
 sudo apt install git build-essential ninja-build pkg-config \
-    libglib2.0-dev libpixman-1-dev python3 python3-venv flex bison
+    libglib2.0-dev libpixman-1-dev libslirp-dev python3 python3-venv flex bison
 
 # Cross compiler (for firmware) & guest bootloader
 sudo apt install gcc-riscv64-linux-gnu u-boot-qemu
@@ -87,7 +87,7 @@ cd q-vela
 
 ```bash
 cd qemu
-./configure --target-list=riscv64-softmmu
+./configure --target-list=riscv64-softmmu --enable-slirp
 make -j$(nproc)
 cd ..
 ```
