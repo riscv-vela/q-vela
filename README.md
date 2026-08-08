@@ -4,7 +4,7 @@ Q-Vela is a QEMU-based RISC-V virtual emulation platform for validating system s
 
 It extends upstream QEMU with emulation support for the following four key features:
 
-- **[VelaNPU](qemu/hw/misc/gemmini/README.md)** — An accelerator that emulates Chipyard Gemmini's matrix-matrix multiplication in software, with additional support for ternary GEMM
+- **[VelaNPU](qemu/hw/misc/gemmini/README.md)** — A software-emulated accelerator modeling Chipyard Gemmini's matrix-matrix multiplication, with additional support for the ternary GEMM implemented in [f-vela](https://github.com/riscv-vela/f-vela))
 - **[Custom Vector ISA](docs/isa.md)** — Custom vector instructions for RoPE, tokenizer acceleration, and PID control
 - **[TEE](docs/tee.md)** — Trusted Execution Environment via WorldGuard memory protection and Keystone enclave framework
 - **[RAS](docs/ras.md)** — Reliability, Availability, and Serviceability via RISC-V Error Record Interface (RERI)
