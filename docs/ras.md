@@ -9,49 +9,42 @@ delivers injected/detected hardware errors to Linux through the following path:
 RERI MMIO (QEMU)  →  OpenSBI (+ sm)  →  SBI SSE  →  GHES / ACPI APEI  →  Linux "[Hardware Error]" report
 ```
 
-## 1. Repository layout (RAS-related)
+## 1. Where each piece lives
 
-| Path | Role |
-|---|---|
-| `qemu/` | Custom QEMU. Provides the `riscv.reri.hart` MMIO device, enabled by `-M virt,reri=true` (one device per hart) |
-| `opensbi/` | M-mode firmware. Receives RERI errors and reports them to the OS via SBI SSE |
-| `sm/` | Rust security monitor. Built as `libvela.a` and linked into OpenSBI by `opensbi_tee.patch` → **must be built before opensbi** |
-| `linux/` | Linux kernel with the RERI / APEI path enabled (`RISCV_SBI_SSE`, `ACPI_APEI_GHES`, ...) |
-| `edk2/` | UEFI firmware, produces the pflash images `RISCV_VIRT_CODE.fd` / `RISCV_VIRT_VARS.fd` |
-| `buildroot/` | Guest userland → `rootfs.cpio` (initramfs; contains busybox, including `devmem`) |
-| `patch/` | Patches and apply scripts for the four submodules — **start here**: [patch/README.md](../patch/README.md) |
-| `reri register generator/` | RERI register map generator (spreadsheet + notes) |
+q-vela provides the emulator. The rest of the chain is built from the other
+repositories, cloned next to `q-vela/`.
 
-> `runtime/`, `sdk/`, `examples/`, `linux-keystone-driver/` belong to the Keystone **TEE** work — see the TEE README.
-> (`sm/` is shared: the RAS build links it into OpenSBI, so it must be built even for a RAS-only setup.)
+| Piece | Repository | Role |
+|---|---|---|
+| `qemu/` | **q-vela** (this) | Provides the `riscv.reri.hart` MMIO device, enabled by `-M virt,reri=true` (one device per hart) |
+| OpenSBI + Security Monitor | [vela-fws](https://github.com/riscv-vela/vela-fws) | M-mode firmware. Receives RERI errors and reports them to the OS via SBI SSE |
+| EDK2 | [vela-fws](https://github.com/riscv-vela/vela-fws) | UEFI firmware, produces the pflash images `RISCV_VIRT_CODE.fd` / `RISCV_VIRT_VARS.fd`, and the HEST/EINJ ACPI tables |
+| buildroot | [vela-fws](https://github.com/riscv-vela/vela-fws) | Guest userland → `rootfs.cpio` (initramfs; busybox provides `devmem`) |
+| Linux | [vela-linux](https://github.com/riscv-vela/vela-linux) | Kernel with the RERI / APEI path enabled (`RISCV_SBI_SSE`, `ACPI_APEI_GHES`, ...) |
+| Injection and collection tools | [vela-apps](https://github.com/riscv-vela/vela-apps) `ras/` | rasdaemon, injection scripts, the RERI register generator |
 
 ## 2. Build
 
-### 2.1 Dependencies
+### 2.1 Dependencies (QEMU)
 
 ```shell
-apt install -y isal libslirp0 file unzip rsync pip python3-sphinx python3-sphinx-rtd-theme \
-ninja-build pkg-config libglib2.0-dev gcc-riscv64-linux-gnu vim build-essential bc \
-libncurses5-dev bin86 libssl-dev bison flex libelf-dev
+sudo apt install git build-essential ninja-build pkg-config \
+    libglib2.0-dev libpixman-1-dev libslirp-dev python3 python3-venv flex bison
 ```
 
-For **TEE / sm** (Rust):
-
-```shell
-apt install -y rustup cargo
-```
+The firmware, kernel and root filesystem have their own prerequisites — see the
+vela-fws and vela-linux READMEs.
 
 ### 2.2 Build order
 
-Apply the patches first, then build in this order. The order matters: **`sm` must precede `opensbi`**
-(OpenSBI links `libvela.a`), and QEMU/edk2 can be built at any point after the patches.
-
 ```
-patch/  →  buildroot  →  sm  →  opensbi  →  linux  →  qemu  →  edk2
+vela-fws:   sm → opensbi → edk2 → buildroot
+vela-linux: linux
+q-vela:     qemu
 ```
 
-Per-component commands (patch scripts, buildroot menuconfig options, kernel CONFIG checks, edk2 environment):
-[patch/README.md](../patch/README.md)
+Within vela-fws, **`sm` must precede `opensbi`**: OpenSBI links `libvela.a`.
+QEMU can be built at any point.
 
 ### 2.3 QEMU
 
@@ -59,7 +52,6 @@ Per-component commands (patch scripts, buildroot menuconfig options, kernel CONF
 cd qemu
 ./configure --target-list=riscv64-softmmu --enable-slirp
 make -j $(nproc)
-# make install   # optional, requires root. The Quick Start below runs ./qemu/build/ directly.
 ```
 
 Check that the RERI machine option is present:
@@ -70,47 +62,61 @@ build/qemu-system-riscv64 -M virt,help | grep reri     # → reri=<bool>
 
 ## 3. Quick Start
 
-After a successful build the artifacts are (paths relative to the repository root):
+Artifacts, with the repositories cloned side by side:
 
-- `Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_CODE.fd`
-- `Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_VARS.fd`
-- `opensbi/build/platform/generic/firmware/fw_dynamic.bin`
-- `linux/arch/riscv/boot/Image`
-- `buildroot/output/images/rootfs.cpio`
+- `../vela-fws/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_CODE.fd`
+- `../vela-fws/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_VARS.fd`
+- `../vela-fws/opensbi/build/platform/generic/firmware/fw_dynamic.bin`
+- `../vela-fws/buildroot/output/images/rootfs.cpio`
+- `../vela-linux/linux/arch/riscv/boot/Image`
 
-Run from the repository root:
+Run from `q-vela/`:
 
 ```shell
+cp ../vela-fws/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_VARS.fd ./VARS.fd
+
 qemu/build/qemu-system-riscv64 \
 -s -accel tcg -m 4096 -smp 2 \
 -serial mon:stdio \
 -d guest_errors -D ./qemu.log \
--machine virt,wg=on \
--bios ./opensbi/build/platform/generic/firmware/fw_dynamic.bin \
+-bios ../vela-fws/opensbi/build/platform/generic/firmware/fw_dynamic.bin \
 -device virtio-gpu-pci -full-screen \
 -device qemu-xhci \
 -device usb-kbd \
 -netdev user,id=net0,host=10.0.2.10,hostfwd=tcp::2221-:22 \
 -device virtio-net-device,netdev=net0 \
--blockdev node-name=pflash0,driver=file,read-only=on,filename=./Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_CODE.fd \
--blockdev node-name=pflash1,driver=file,filename=./Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_VARS.fd \
--M virt,pflash0=pflash0,pflash1=pflash1,rpmi=true,reri=true,aia=aplic-imsic \
--kernel ./linux/arch/riscv/boot/Image \
--initrd ./buildroot/output/images/rootfs.cpio \
+-blockdev node-name=pflash0,driver=file,read-only=on,filename=../vela-fws/Build/RiscVVirtQemu/RELEASE_GCC5/FV/RISCV_VIRT_CODE.fd \
+-blockdev node-name=pflash1,driver=file,filename=./VARS.fd \
+-M virt,wg=on,pflash0=pflash0,pflash1=pflash1,rpmi=true,reri=true,aia=aplic-imsic \
+-kernel ../vela-linux/linux/arch/riscv/boot/Image \
+-initrd ../vela-fws/buildroot/output/images/rootfs.cpio \
 -append "root=/dev/ram rw console=ttyS0 earlycon=uart8250,mmio,0x10000000" \
 -semihosting-config enable=on,userspace=on
 ```
 
+Four options decide whether RERI reporting exists at all, and dropping any one
+of them silently produces a guest with no RAS:
+
+| Option | Why |
+|---|---|
+| `reri=true` | Creates the `riscv.reri.hart` MMIO device. Without it there is nothing to write to. |
+| `pflash0` / `pflash1` | RAS reporting is ACPI-based. HEST and EINJ come from EDK2; a device-tree boot has neither. |
+| `fw_dynamic.bin` | `fw_jump.bin` does not hand over to EDK2. |
+| `wg=on` | OpenSBI links the Vela security monitor, which touches the WorldGuard CSR `mlwid` (`0x390`) during init. Without it the guest dies in M-mode before EDK2 runs: `Failed to access CSR 0x390 from M-mode`, `mcause=0x2 mtval=0x39051073`. |
+
 Notes:
 
+- **`pflash1` is written by QEMU.** The command above points it at a copy so the
+  vela-fws build artifact is left alone.
 - Boot chain: OpenSBI → edk2 (UEFI) → Linux → busybox init → login prompt on the serial console.
   Log in as **`root` with no password**.
 - Host port **2221** is used for SSH forwarding. Ports below 1024 (e.g. 221) can only be bound by root.
 - The `rootfs.cpio` initramfs does **not** include an SSH daemon; use the serial console.
-  (For SSH, boot with the full `rootfs.ext4` image instead of the initramfs.)
 - Exit QEMU with **`Ctrl-A X`**; switch to the QEMU monitor with `Ctrl-A C`
   (`info mtree` shows the `riscv.reri.hart` regions).
 - This setup boots via **ACPI** — there is no device tree (`/sys/firmware/acpi/tables`).
+- A healthy boot shows the RAS chain coming up in `dmesg`:
+  `sse: SBI SSE extension detected` → `GHES: Registered SSE notification` → `EINJ: Error INJection is initialized.`
 
 ## 4. RERI smoke test
 
@@ -133,6 +139,9 @@ devmem 0x4010048 32 0xC001702
 devmem 0x4010044 8 1
 ```
 
+All three writes are needed: writing the error code alone does nothing, the
+write to `+0x44` is what fires the injection.
+
 Then check `dmesg`. Expected report per injection:
 
 | Injected code | dmesg `[Hardware Error]` |
@@ -140,5 +149,6 @@ Then check `dmesg`. Expected report per injection:
 | `0x9001404` (TLB) | `error_type: 0x02`, `TLB error`, `operation: 1, data read`, severity `recoverable` |
 | `0xC001702` (hart) | `error_type: 0x08`, `micro-architectural error`, `operation: 2, data write`, severity `corrected` |
 
-A healthy boot also shows the RAS chain coming up in `dmesg`:
-`sse: SBI SSE extension detected` → `GHES: Registered SSE notification` → `EINJ: Error INJection is initialized.`
+For error injection beyond this smoke test — rasdaemon, the `ras:non_standard_event`
+tracepoint, the full error-code table and the register generator — see
+[vela-apps `ras/`](https://github.com/riscv-vela/vela-apps/tree/main/ras).
