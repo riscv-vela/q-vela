@@ -11,6 +11,8 @@ It extends upstream QEMU with emulation support for the following four key featu
 
 The platform is used for function-level testing of RISC-V system software before validation on the FPGA-based hardware platform (i.e., [i-vela](https://github.com/riscv-vela/i-vela), [f-vela](https://github.com/riscv-vela/f-vela)). In addition, _VelaNPU_ and _Custom Vector ISA_ replicate the functional behavior of the [f-vela](https://github.com/riscv-vela/f-vela)'s NPU/VPU within the QEMU environment, providing equivalent emulation.
 
+Note: f-vela and i-vela will be publicly released in Q4 2026 (expected).
+
 ---
 
 ## Repository Structure
