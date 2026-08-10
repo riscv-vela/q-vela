@@ -97,7 +97,7 @@ Save the following as `run.sh` in the repository root and execute it:
 #!/bin/bash
 ./qemu/build/qemu-system-riscv64 \
     -machine virt,wg=on -nographic -m 16384 -smp 4 \
-    -bios ../vela-fws/opensbi/build/platform/generic/firmware/fw_jump.bin \
+    -bios ../vela-fws/opensbi/build/platform/generic/firmware/fw_dynamic.bin \
     -kernel ../vela-linux/linux/arch/riscv/boot/Image \
     -append "root=/dev/vda1 rw console=ttyS0 earlycon=sbi" \
     -cpu rv64,v=true,vlen=512,vext_spec=v1.0,zba=true,zbb=true,zbs=true,zbc=true,zbkb=true,zcb=true,zicond=true \
