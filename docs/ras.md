@@ -142,6 +142,42 @@ devmem 0x4010044 8 1
 All three writes are needed: writing the error code alone does nothing, the
 write to `+0x44` is what fires the injection.
 
+### Arm the bank before every session, and per hart
+
+`+0x40` resets to `0`, which means error logging is off. An injection into an
+unarmed bank is dropped in silence — no error from `devmem`, nothing in `dmesg`,
+no trace event. There is nothing to tell you the injection did not happen, so arm
+first and read the value back:
+
+```shell
+devmem 0x4010040 32 0x2a1
+devmem 0x4010040 32            # expect 0x000002A1
+```
+
+Two things to remember. The register is per hart, so arming hart 0 does not arm
+hart 3 — use `0x4010040 + hart * 0x1000`. And it has to be redone every time the
+QEMU process starts; on an ACPI-booted guest a reboot currently cannot be used to
+get back to a fresh state anyway (#62).
+
+### hart numbers are not Linux CPU numbers
+
+RERI and GHES report hart ids. Linux numbers its CPUs separately, and the two do
+not line up: the boot hart becomes CPU 0 wherever it sits in the hart space, and
+which hart boots changes from run to run. On this machine with `-smp 8` we have
+seen boot hart 7, 4 and 2 on different boots.
+
+```shell
+$ grep -E '^processor|^hart' /proc/cpuinfo | paste - -
+processor : 0    hart : 7       # boot hart took CPU 0
+processor : 1    hart : 0
+processor : 2    hart : 1
+...
+```
+
+So read the mapping at runtime instead of assuming it. Taking the reported hart
+number as a CPU number means that acting on a fault — offlining the core, pinning
+work away from it — hits the wrong CPU while the faulting hart keeps running.
+
 Then check `dmesg`. Expected report per injection:
 
 | Injected code | dmesg `[Hardware Error]` |
