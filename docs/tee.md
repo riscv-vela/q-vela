@@ -16,7 +16,7 @@ The stack spans all three privilege levels:
 |-------|-----------|------|
 | **M** | Security Monitor (`sm/`) | Trusted core: enclave lifecycle + WorldGuard isolation |
 | **M** | Firmware — OpenSBI + TEE patch (`patch/opensbi_tee.patch`) | Boots and hosts the SM, routes enclave calls to it |
-| **S** | Keystone driver (`linux-keystone-driver/`) | Linux host-side interface to create/run enclaves |
+| **S** | Keystone driver (`linux/drivers/misc/keystone/`) | Linux host-side interface to create/run enclaves |
 | **S + U** | Application software (`sdk/`, `runtime/`, `examples/`) | SDK libraries (host·app·edge·verifier) + in-enclave runtime (S) + enclave/host apps (U), built together |
 
 ## WorldGuard (QEMU)
@@ -130,8 +130,8 @@ and opens the rest to the OS world.
 
 ## Driver (S-mode)
 
-The Keystone driver (`linux-keystone-driver/`) is a loadable Linux kernel module
-that lets host applications create and run enclaves. It is the stock Berkeley
+The Keystone driver (`linux/drivers/misc/keystone/`) is built into the Linux
+kernel (`CONFIG_KEYSTONE_ENCLAVE=y`) and lets host applications create and run enclaves. It is the stock Berkeley
 Keystone driver, extended locally with the shared-memory (SHM) region API.
 
 It sits between the host app and the SM:
@@ -212,9 +212,8 @@ This produces `examples/build/hello/hello.vela`.
 
 ### Run (inside the guest)
 
-With the driver loaded, run the host program with the packaged artifacts:
+The driver is built into the kernel, so run the host program with the packaged artifacts:
 
 ```bash
-insmod keystone-driver.ko
 ./hello-runner hello eyrie-rt loader.bin   # or: ./hello.vela
 ```
